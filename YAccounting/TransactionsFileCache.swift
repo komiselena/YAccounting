@@ -20,7 +20,7 @@ final class TransactionsFileCache {
     }
     
     func addTransaction(_ transaction: Transaction) throws  {
-        if transactions.contains(where: { $0.accountId == transaction.accountId }) {
+        if transactions.contains(where: { $0.id == transaction.id }) {
             throw CacheError.duplicateTransaction
         }
         
@@ -29,7 +29,7 @@ final class TransactionsFileCache {
     }
     
     func deleteTransaction(id: Int) throws {
-        transactions.removeAll(where: { $0.accountId == id})
+        transactions.removeAll(where: { $0.id == id})
         try saveToFile()
     }
     
@@ -69,4 +69,3 @@ final class TransactionsFileCache {
         case fileError
     }
 }
-
