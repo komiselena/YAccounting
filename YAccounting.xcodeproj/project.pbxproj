@@ -30,7 +30,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		04E791372DF362F40069CBB9 /* Exceptions for "YAccounting" folder in "YAccounting" target */ = {
+		04E791612DF373FC0069CBB9 /* Exceptions for "YAccounting" folder in "YAccounting" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -40,14 +40,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		04E791132DF362F10069CBB9 /* YAccounting */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				04E791372DF362F40069CBB9 /* Exceptions for "YAccounting" folder in "YAccounting" target */,
-			);
-			path = YAccounting;
-			sourceTree = "<group>";
-		};
 		04E791282DF362F40069CBB9 /* YAccountingTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = YAccountingTests;
@@ -56,6 +48,14 @@
 		04E791322DF362F40069CBB9 /* YAccountingUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = YAccountingUITests;
+			sourceTree = "<group>";
+		};
+		04E7915B2DF373FB0069CBB9 /* YAccounting */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				04E791612DF373FC0069CBB9 /* Exceptions for "YAccounting" folder in "YAccounting" target */,
+			);
+			path = YAccounting;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -88,7 +88,7 @@
 		04E791082DF362F10069CBB9 = {
 			isa = PBXGroup;
 			children = (
-				04E791132DF362F10069CBB9 /* YAccounting */,
+				04E7915B2DF373FB0069CBB9 /* YAccounting */,
 				04E791282DF362F40069CBB9 /* YAccountingTests */,
 				04E791322DF362F40069CBB9 /* YAccountingUITests */,
 				04E791122DF362F10069CBB9 /* Products */,
@@ -121,7 +121,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				04E791132DF362F10069CBB9 /* YAccounting */,
+				04E7915B2DF373FB0069CBB9 /* YAccounting */,
 			);
 			name = YAccounting;
 			packageProductDependencies = (
