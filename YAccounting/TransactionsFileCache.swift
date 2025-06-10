@@ -70,7 +70,3 @@ final class TransactionsFileCache {
     }
 }
 
-
-extension Transaction {
-    
-}
