@@ -9,6 +9,18 @@ import Foundation
 
 struct Transaction: Codable {
     let id: Int
+    let accountId: Int
+    let categoryId: Int
+    let amount: Decimal
+    let transactionDate: Date
+    let comment: String
+    let createdAt: Date
+    let updatedAt: Date
+
+}
+
+struct TransactionResponce: Codable {
+    let id: Int
     let account: Account
     let category: Category
     let amount: Decimal
@@ -33,27 +45,55 @@ extension Transaction {
     var jsonObject: Any {
         return [
             "id": self.id,
-            "account": [
-                "id": self.account.id,
-                "name": self.account.name,
-                "balance": NSDecimalNumber(decimal: self.account.balance).stringValue,
-                "currency": self.account.currency
-            ],
-            "category": [
-                "id": self.category.id,
-                "name": self.category.name,
-                "emoji": String(self.category.emoji),
-                "isIncome": self.category.isIncome
-            ],
+            "accountId": self.accountId,
+            "categoryId": self.categoryId,
             "amount": NSDecimalNumber(decimal: self.amount).stringValue,
             "transactionDate": ISO8601DateFormatter().string(from: self.transactionDate),
-            "comment" : self.comment,
+            "comment": self.comment,
             "createdAt": ISO8601DateFormatter().string(from: self.createdAt),
-            "updatedAt": ISO8601DateFormatter().string(from: self.updatedAt),
+            "updatedAt": ISO8601DateFormatter().string(from: self.updatedAt)
 
         ]
     }
 
+    static func parse(jsonObject: Any) -> Transaction? {
+        guard let jsonDict = jsonObject as? [String: Any] else {
+            return nil
+        }
+        
+        guard let id = jsonDict["id"] as? Int,
+              let accountId = jsonDict["accountId"] as? Int,
+              let categoryId = jsonDict["categoryId"] as? Int,
+              let amountString = jsonDict["amount"] as? String,
+              let transactionDateString = jsonDict["transactionDate"] as? String,
+              let comment = jsonDict["comment"] as? String,
+              let createdAtString = jsonDict["createdAt"] as? String,
+              let updatedAtString = jsonDict["updatedAt"] as? String else {
+            return nil
+        }
+        
+        guard let amount = Decimal(string: amountString),
+              let transactionDate = ISO8601DateFormatter().date(from: transactionDateString),
+              let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+              let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
+            return nil
+        }
+        
+        return Transaction(
+            id: id,
+            accountId: accountId,
+            categoryId: categoryId,
+            amount: amount,
+            transactionDate: transactionDate,
+            comment: comment,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+    }
+
+}
+
+extension TransactionResponce{
     static func parse(jsonObject: Any) -> Transaction? {
         guard let jsonDict = jsonObject as? [String: Any] else {
             return nil
@@ -100,8 +140,8 @@ extension Transaction {
         
         return Transaction(
             id: id,
-            account: account,
-            category: category,
+            accountId: account.id,
+            categoryId: category.id,
             amount: amount,
             transactionDate: transactionDate,
             comment: comment,
@@ -110,4 +150,5 @@ extension Transaction {
         )
 
     }
+
 }

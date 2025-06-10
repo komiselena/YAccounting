@@ -12,18 +12,8 @@ final class TransactionService {
     private var mockTransactions: [Transaction] = [
         Transaction(
             id: 1,
-            account: Transaction.Account(
-                id: 1,
-                name: "Основной счёт",
-                balance: Decimal(1000.00),
-                currency: "RUB"
-            ),
-            category: Category(
-                id: 1,
-                name: "Зарплата",
-                emoji: "💰",
-                isIncome: true
-            ),
+            accountId: 1,
+            categoryId: 1,
             amount: Decimal(500.00),
             transactionDate: Date(),
             comment: "Зарплата за месяц",
