@@ -18,7 +18,7 @@ struct Transaction: Codable {
     let updatedAt: Date
 }
 
-struct TransactionResponce: Codable {
+struct TransactionResponse: Codable {
     let id: Int
     let account: Account
     let category: Category
@@ -37,6 +37,7 @@ struct TransactionResponce: Codable {
     }
 
 }
+
 
 extension Transaction {
     var jsonObject: Any {
@@ -90,7 +91,7 @@ extension Transaction {
 
 }
 
-extension TransactionResponce{
+extension TransactionResponse{
     static func parse(jsonObject: Any) -> Transaction? {
         guard let jsonDict = jsonObject as? [String: Any] else {
             return nil
