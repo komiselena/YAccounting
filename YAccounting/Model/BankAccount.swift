@@ -10,11 +10,11 @@ import SwiftUI
 
 struct BankAccount: Codable {
     let id: Int
-    let userId: Int
-    let name: String
-    let balance: Decimal
-    let currency: String
-    let createdAt: Date
-    let updatedAt: Date
+    var userId: Int
+    var name: String
+    var balance: Decimal
+    var currency: String
+    var createdAt: Date
+    var updatedAt: Date
     
 }
