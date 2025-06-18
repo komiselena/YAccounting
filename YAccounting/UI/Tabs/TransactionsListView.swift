@@ -17,6 +17,17 @@ struct TransactionsListView: View {
     @State private var isLoading: Bool = false
     @State private var error: Error?
     
+    @State private var sortOption: SortOption = .byDate
+
+    private var sortedTransactions: [Transaction] {
+        switch sortOption {
+        case .byDate:
+            return transactions.sorted(by: { $0.transactionDate > $1.transactionDate })
+        case .byAmount:
+            return transactions.sorted(by: { $0.amount > $1.amount })
+        }
+    }
+
     private var totalAmount: Decimal {
         transactions.reduce(0) { $0 + $1.amount }
     }
@@ -37,11 +48,17 @@ struct TransactionsListView: View {
                     
                 } else if let error = error {
                     Text("Error: \(error.localizedDescription)")
-                }else if transactions.isEmpty {
+                }else if sortedTransactions.isEmpty {
                     Text("Нет транзакций за сегодня")
                 }else{
                     List{
                         Section {
+                            Picker("Сортировка", selection: $sortOption) {
+                                Text("По дате").tag(SortOption.byDate)
+                                Text("По сумме").tag(SortOption.byAmount)
+                            }
+                            .pickerStyle(.menu)
+
                             HStack{
                                 Text("Всего")
                                     .foregroundStyle(.black)
@@ -56,7 +73,7 @@ struct TransactionsListView: View {
                         }
                         
                         Section("ОПЕРАЦИИ") {
-                            ForEach(transactions){ transaction in
+                            ForEach(sortedTransactions){ transaction in
                                 let category = categories.first { $0.id == transaction.categoryId }
                                 TransactionListRow(transaction: transaction, category: category)
                             }
@@ -104,5 +121,5 @@ struct TransactionsListView: View {
 }
 
 #Preview {
-    TransactionsListView(direction: .income)
+    TransactionsListView(direction: .outcome)
 }
