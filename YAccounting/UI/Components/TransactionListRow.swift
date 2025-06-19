@@ -12,32 +12,31 @@ struct TransactionListRow: View {
     @State var category: Category?
     
     var body: some View {
-        if let category = category {
-            
-            HStack{
-                ZStack{
-                    Circle()
-                        .fill(.operationImageBG)
-                        .frame(width: 40, height: 40)
-                    Text("\(category.emoji)")
-                    
-                }
-                VStack(alignment: .leading) {
-                    Text(category.name)
-                        .foregroundStyle(.black)
-                    if ((transaction.comment?.isEmpty) == nil) {
-                        Text(transaction.comment ?? "")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                Spacer()
-                
-                Text("\(transaction.amount) \(Currency.RUB.rawValue)")
+        
+        HStack{
+            ZStack{
+                Circle()
+                    .fill(.operationImageBG)
+                    .frame(width: 40, height: 40)
+                Text("\(category?.emoji ?? "❓")")
                 
             }
+
+            VStack(alignment: .leading) {
+                Text(category?.name ?? "Other")
+                    .foregroundStyle(.black)
+                if ((transaction.comment?.isEmpty) == nil) {
+                    Text(transaction.comment ?? "")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+
+            Text("\(transaction.amount) \(Currency.RUB.rawValue)")
             
         }
+        
     }
     
 }
