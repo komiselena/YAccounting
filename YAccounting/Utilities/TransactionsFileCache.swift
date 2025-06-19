@@ -64,7 +64,7 @@ final class TransactionsFileCache {
 
     }
     
-    enum CacheError: Error{
+    private enum CacheError: Error{
         case duplicateTransaction
         case fileError
     }

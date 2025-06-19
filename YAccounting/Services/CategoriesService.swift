@@ -8,7 +8,7 @@
 import Foundation
 
 
-final class CategoriesService {
+final class CategoriesService: ObservableObject {
     
     private var mockCategories: [Category] = [
         Category(id: 1, name: "Salary", emoji: "💸", isIncome: true),

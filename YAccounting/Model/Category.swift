@@ -10,9 +10,9 @@ import SwiftUI
 
 struct Category: Codable {
     let id: Int
-    let name: String
-    let emoji: Character
-    let isIncome: Bool
+    var name: String
+    var emoji: Character
+    var isIncome: Bool
     
     var direction: Direction {
         return isIncome ? .income : .outcome
@@ -55,7 +55,3 @@ struct Category: Codable {
     
 }
 
-enum Direction {
-    case income
-    case outcome
-}
