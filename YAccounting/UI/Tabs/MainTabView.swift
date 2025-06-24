@@ -37,7 +37,7 @@ struct MainTabView: View {
                             
                         }
                     
-                    BalanceView()
+                    BalanceScreen()
                         .tabItem {
                             VStack{
                                 Image("balanceImage")

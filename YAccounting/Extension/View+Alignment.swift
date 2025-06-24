@@ -12,4 +12,9 @@ extension View{
         self
             .frame(maxWidth: .infinity, alignment: .leading)
     }
+    func hTrailing() -> some View {
+        self
+            .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
 }

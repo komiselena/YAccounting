@@ -17,7 +17,9 @@ final class BankAccountsService {
     
     
     func changeBankAccount(_ bankAccount: BankAccount) async throws {
-        mockBankAccount = bankAccount
+        var updatedAccunt = bankAccount
+        updatedAccunt.updatedAt = Date()
+        mockBankAccount = updatedAccunt
     }
     
 }
