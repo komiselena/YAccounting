@@ -54,21 +54,55 @@ struct BalanceEditView: View {
         VStack(spacing: 20) {
             Text("Валюта")
             Divider()
-            Button("Российский рубль ₽") {
+            
+            currencyButtonView(currency: "Российский рубль ₽")
+
+            Divider()
+            currencyButtonView(currency: "Американский доллар $")
+            
+            Divider()
+            currencyButtonView(currency: "Евро €")
+        }
+    }
+    
+    private func currencyButtonView(currency: String) -> some View {
+        Button {
+            switch currency{
+            case "Российский рубль ₽":
                 balanceViewModel.currentCurrency = .RUB
                 showPopup = false
-            }
-            Divider()
-            Button("Американский доллар $") {
+                Task {
+                    await balanceViewModel.updateCurrency(Currency.RUB.rawValue)
+                }
+
+            case "Американский доллар $":
                 balanceViewModel.currentCurrency = .USD
                 showPopup = false
-            }
-            Divider()
-            Button("Евро €") {
+                Task {
+                    await balanceViewModel.updateCurrency(Currency.USD.rawValue)
+                }
+
+            case "Евро €":
                 balanceViewModel.currentCurrency = .EUR
                 showPopup = false
+                Task {
+                    await balanceViewModel.updateCurrency(Currency.EUR.rawValue)
+                }
+
+            default:
+                balanceViewModel.currentCurrency = .RUB
+                showPopup = false
+                Task {
+                    await balanceViewModel.updateCurrency(Currency.RUB.rawValue)
+                }
+
             }
+
+        } label: {
+            Text(currency)
+                .padding(.horizontal)
         }
+
     }
     
     private func balanceView() -> some View {

@@ -45,5 +45,16 @@ final class BalanceViewModel: ObservableObject {
         }
     }
     
+    func updateCurrency(_ newCurrency: String) async {
+        guard var account = bankAccount else { return }
+        account.currency = newCurrency
+        do{
+            try await bankAccountService.changeBankAccount(account)
+            bankAccount = account
+        }catch{
+            print("Error updating balance: \(error)")
+        }
+    }
+
     
 }
