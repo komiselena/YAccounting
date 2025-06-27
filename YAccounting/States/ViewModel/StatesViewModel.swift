@@ -7,8 +7,9 @@
 
 import SwiftUI
 
+@MainActor
 final class StatesViewModel: ObservableObject {
-    private var categoryService = CategoriesService() // Fixed: Removed @StateObject
+    private var categoryService = CategoriesService()
     
     @Published var search = "" {
         didSet {
@@ -48,7 +49,6 @@ final class StatesViewModel: ObservableObject {
         var textIndex = text.startIndex
         var matches: [String.Index] = []
         
-        // Find all matches in order
         while textIndex < text.endIndex && patternIndex < pattern.endIndex {
             if text[textIndex] == pattern[patternIndex] {
                 matches.append(textIndex)
@@ -57,12 +57,10 @@ final class StatesViewModel: ObservableObject {
             textIndex = text.index(after: textIndex)
         }
         
-        // Calculate score based on matches
         var score = 0
         for (i, matchIndex) in matches.enumerated() {
-            score += 10  // Base match score
+            score += 10
             
-            // Consecutive bonus
             if i > 0 {
                 let prevIndex = matches[i-1]
                 if text.index(after: prevIndex) == matchIndex {
@@ -70,13 +68,11 @@ final class StatesViewModel: ObservableObject {
                 }
             }
             
-            // Start-of-word bonus
             if matchIndex == text.startIndex || text[text.index(before: matchIndex)] == " " {
                 score += 3
             }
         }
         
-        // Penalty for unmatched characters
         let unmatchedCount = pattern.distance(from: patternIndex, to: pattern.endIndex)
         return unmatchedCount == 0 ? score : max(0, score - (unmatchedCount * 2))
     }
