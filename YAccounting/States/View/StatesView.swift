@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct StatesView: View {
-    @StateObject var stateViewModel = StatesViewModel() // Fixed: Use @StateObject
+    @StateObject var stateViewModel = StatesViewModel()
     
     var body: some View {
         NavigationStack {
