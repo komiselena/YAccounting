@@ -7,7 +7,7 @@
 
 import Foundation
 
-final class BankAccountsService {
+final class BankAccountsService: BankAccountsServiceProtocol {
     
     private var mockBankAccount: BankAccount = BankAccount(id: 1, userId: 1, name: "main", balance: 100000.9, currency: "RUB", createdAt: Date(), updatedAt: Date())
     

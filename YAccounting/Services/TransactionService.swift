@@ -7,7 +7,7 @@
 
 import Foundation
 
-final actor TransactionService: ObservableObject {
+final actor TransactionService: ObservableObject, TransactionServiceProtocol {
     private var mockTransactions: [Transaction] = [
         Transaction(
             id: 1,
@@ -71,3 +71,4 @@ final actor TransactionService: ObservableObject {
     }
     
 }
+
