@@ -55,3 +55,12 @@ struct Category: Codable {
     
 }
 
+extension Category: Hashable {
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    
+    static func == (lhs: Category, rhs: Category) -> Bool {
+        return lhs.id == rhs.id
+    }
+}
