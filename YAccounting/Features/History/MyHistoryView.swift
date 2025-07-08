@@ -93,8 +93,13 @@ struct MyHistoryView: View {
         .navigationTitle("Моя история")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink(destination: EmptyView()) {
+                NavigationLink {
+                    AnalysisView(transactions: historyViewModel.transactions, categories: historyViewModel.categories)
+                        .navigationTitle("Анализ")
+                        .background(Color(.systemGroupedBackground))
+                } label: {
                     Image(systemName: "document")
+
                 }
             }
         }
