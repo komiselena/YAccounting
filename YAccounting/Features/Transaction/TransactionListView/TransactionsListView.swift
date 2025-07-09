@@ -9,10 +9,10 @@ import SwiftUI
 
 struct TransactionsListView: View {
     
-    @StateObject private var viewModel: TransactionsListViewModel
-
+    @StateObject private var viewModel: TransactionViewModel
+    
     init(direction: Direction) {
-        _viewModel = StateObject(wrappedValue: TransactionsListViewModel(direction: direction))
+        _viewModel = StateObject(wrappedValue: TransactionViewModel(direction: direction))
     }
 
     private var sortedTransactions: [Transaction] {
@@ -58,8 +58,8 @@ struct TransactionsListView: View {
                         Section("ОПЕРАЦИИ") {
                             ForEach(sortedTransactions){ transaction in
                                 let category = viewModel.categories.first { $0.id == transaction.categoryId }
-                                NavigationLink {
-                                    EmptyView()
+                                Button {
+                                    viewModel.showTransactionView = true
                                 } label: {
                                     TransactionListRow(transaction: transaction, category: category)
 
@@ -70,6 +70,22 @@ struct TransactionsListView: View {
                     }
                 }
             }
+            .overlay(
+                Button{
+                    viewModel.showTransactionView = true
+                } label : {
+                    Image(systemName: "plus")
+                        .font(.largeTitle)
+                        .foregroundStyle(.white)
+                        .padding()
+                        .background(
+                            Circle()
+                                .fill(.accent)
+                        )
+                }
+                    .padding()
+                ,alignment: .bottomTrailing
+            )
             .toolbar(content: {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
@@ -87,6 +103,9 @@ struct TransactionsListView: View {
         .tint(Color("tintColor"))
         .task {
             await viewModel.loadData()
+        }
+        .fullScreenCover(isPresented: $viewModel.showTransactionView) {
+            TransactionView(viewModel: viewModel)
         }
     }
 

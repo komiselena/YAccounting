@@ -1,5 +1,5 @@
 //
-//  TransactionsListViewModel.swift
+//  TransactionViewModel.swift
 //  YAccounting
 //
 //  Created by Mac on 19.06.2025.
@@ -8,7 +8,7 @@
 import Foundation
 
 @MainActor
-final class TransactionsListViewModel: ObservableObject {
+final class TransactionViewModel: ObservableObject {
     
     private let transactionService = TransactionService()
     private let categoriesService = CategoriesService()
@@ -18,6 +18,8 @@ final class TransactionsListViewModel: ObservableObject {
     @Published var transactions: [Transaction] = []
     @Published var categories: [Category] = []
     @Published var isLoading = false
+    
+    @Published var showTransactionView = false
 
     @Published var startDate = Calendar.current.date(byAdding: .month, value: -1, to: Date())!
     @Published var endDate = Date()
@@ -57,5 +59,33 @@ final class TransactionsListViewModel: ObservableObject {
         }
         isLoading = false
     }
+    
+    func createTransaction(_ transaction: Transaction) async {
+        do {
+            try await transactionService.createTransaction(transaction)
+            await self.loadData()
+        } catch {
+            self.error = error
+        }
+    }
+    
+    func editTransaction(_ transaction: Transaction) async {
+        do {
+            try await transactionService.editTransaction(transaction)
+            await self.loadData()
+        } catch {
+            self.error = error
+        }
+    }
+
+    func deleteTransaction(_ transaction: Transaction) async {
+        do {
+            try await transactionService.deleteTransaction(transaction)
+            await self.loadData()
+        } catch {
+            self.error = error
+        }
+    }
+
 
 }
