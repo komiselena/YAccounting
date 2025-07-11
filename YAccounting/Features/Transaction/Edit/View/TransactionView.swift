@@ -64,14 +64,14 @@ struct TransactionView: View {
                         }
                         
                         DatePicker("Дата", selection: $viewModel.date, in: ...Date.now, displayedComponents: .date)
-                        //                        .accentColor(.accentColor)
-                        //                        .labelsHidden()
-                        //                        .datePickerStyle(.colored(backgroundColor: .operationImageBG))
+                                                .accentColor(.accentColor)
+//                                                .labelsHidden()
+//                                                .datePickerStyle(.colored(backgroundColor: .operationImageBG))
                         
                         DatePicker("Время", selection: $viewModel.date, displayedComponents: .hourAndMinute)
-                        //                        .accentColor(.accentColor)
-                        //                        .labelsHidden()
-                        //                        .datePickerStyle(.colored(backgroundColor: .operationImageBG))
+                                                .accentColor(.accentColor)
+//                                                .labelsHidden()
+//                                                .datePickerStyle(.colored(backgroundColor: .operationImageBG))
                         
                         ZStack(alignment: .leading) {
                             if viewModel.comment.isEmpty {
@@ -89,8 +89,7 @@ struct TransactionView: View {
                                 viewModel.showDeleteConfirmation = true
                             } label: {
                                 HStack {
-                                    Spacer()
-                                    Text("Удалить")
+                                    Text("Удалить \(viewModel.direction == .income ? "доход" : "расход")")
                                     Spacer()
                                 }
                             }

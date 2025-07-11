@@ -11,7 +11,7 @@ class TransactionCell: UITableViewCell {
     private let emojiContainer: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = UIColor.systemGray6
+        view.backgroundColor = UIColor(.operationImageBG)
         view.layer.cornerRadius = 16
         return view
     }()

@@ -98,8 +98,10 @@ final class TransactionViewModel: ObservableObject {
         guard let selectedCategory = selectedCategory,
               let amount = Decimal(string: amountString) else { return }
         
+        let newId = transactionScreenMode == .edit ? transaction?.id ?? Int.random(in: 1...Int.max) : Int.random(in: 1...Int.max)
+        
         let transaction = Transaction(
-            id: transactionScreenMode == .edit ? transaction?.id ?? 0 : 0,
+            id: newId,
             accountId: 1,
             categoryId: selectedCategory.id,
             amount: amount,
@@ -111,29 +113,21 @@ final class TransactionViewModel: ObservableObject {
         
         Task {
             isLoading = true
-            if transactionScreenMode == .edit {
-                do {
+            do {
+                if transactionScreenMode == .edit {
                     try await transactionService.editTransaction(transaction)
-                    await loadData()
-                    
-                } catch {
-                    self.error = error
-                }
-            } else {
-                do {
+                } else {
                     try await transactionService.createTransaction(transaction)
-                    await loadData()
-                } catch {
-                    self.error = error
                 }
+                await loadData()
+                resetForm()
+            } catch {
+                self.error = error
             }
-            amountString = ""
-            comment = ""
-            showTransactionView = false
             isLoading = false
         }
     }
-    
+
     func deleteTransaction() async {
         guard let transaction = transaction else { return }
         isLoading = true
@@ -143,10 +137,14 @@ final class TransactionViewModel: ObservableObject {
         } catch {
             self.error = error
         }
+        resetForm()
+        isLoading = false
+    }
+    private func resetForm() {
         amountString = ""
         comment = ""
+        date = Date.now
         showTransactionView = false
-        isLoading = false
     }
 
 
