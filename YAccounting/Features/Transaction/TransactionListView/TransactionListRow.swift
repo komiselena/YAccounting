@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct TransactionListRow: View {
-    @State var transaction: Transaction
-    @State var category: Category?
+    let transaction: Transaction
+    let category: Category?
     
     var body: some View {
         
@@ -25,16 +25,16 @@ struct TransactionListRow: View {
             VStack(alignment: .leading) {
                 Text(category?.name ?? "Other")
                     .foregroundStyle(.black)
-                if ((transaction.comment?.isEmpty) == nil) {
-                    Text(transaction.comment ?? "")
+                Text(transaction.comment ?? "")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                }
             }
             Spacer()
 
             Text("\(transaction.amount) \(Currency.RUB.rawValue)")
-            
+                .foregroundStyle(.black)
+            Image(systemName: "chevron.right")
+                .foregroundStyle(.secondary)
         }
         
     }

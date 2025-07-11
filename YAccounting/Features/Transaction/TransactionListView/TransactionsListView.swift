@@ -59,6 +59,8 @@ struct TransactionsListView: View {
                             ForEach(sortedTransactions){ transaction in
                                 let category = viewModel.categories.first { $0.id == transaction.categoryId }
                                 Button {
+                                    viewModel.transactionScreenMode = .edit
+                                    viewModel.transaction = transaction
                                     viewModel.showTransactionView = true
                                 } label: {
                                     TransactionListRow(transaction: transaction, category: category)
@@ -72,6 +74,8 @@ struct TransactionsListView: View {
             }
             .overlay(
                 Button{
+                    viewModel.transaction = nil
+                    viewModel.transactionScreenMode = .creation
                     viewModel.showTransactionView = true
                 } label : {
                     Image(systemName: "plus")
@@ -89,7 +93,7 @@ struct TransactionsListView: View {
             .toolbar(content: {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
-                        MyHistoryView(direction: viewModel.direction)
+                        MyHistoryView(direction: viewModel.direction, viewModel: viewModel)
                     } label: {
                         Image(systemName: "clock")
                     }
@@ -99,7 +103,6 @@ struct TransactionsListView: View {
             .navigationTitle(viewModel.direction == .outcome ? "Расходы сегодня" : "Доходы сегодня")
             
         }
-        
         .tint(Color("tintColor"))
         .task {
             await viewModel.loadData()

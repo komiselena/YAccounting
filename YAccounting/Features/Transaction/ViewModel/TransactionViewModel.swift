@@ -14,6 +14,9 @@ final class TransactionViewModel: ObservableObject {
     private let categoriesService = CategoriesService()
     
     let direction: Direction
+    var transaction: Transaction?
+    
+    @Published var transactionScreenMode: TransactionMode?
 
     @Published var transactions: [Transaction] = []
     @Published var categories: [Category] = []
@@ -39,10 +42,21 @@ final class TransactionViewModel: ObservableObject {
 
     @Published var sortOption: SortOption = .byDate
     
+    @Published var selectedCategory: Category?
+    @Published var amountString: String = ""
+    @Published var date: Date = Date.now
+    @Published var comment: String = ""
+    @Published var showValidationAlert = false
+    @Published var showDeleteConfirmation = false
     
-    init(direction: Direction){
-        self.direction = direction
+    private var isFormValid: Bool {
+        selectedCategory != nil && !amountString.isEmpty && Decimal(string: amountString) != nil
+    }
         
+
+    init(direction: Direction, transaction: Transaction? = nil) {
+        self.direction = direction
+        self.transaction = transaction
     }
 
     func loadData() async {
@@ -59,33 +73,82 @@ final class TransactionViewModel: ObservableObject {
         }
         isLoading = false
     }
+        
+    func loadInitialData() async {
+        isLoading = true
+        await loadData()
+        
+        if transactionScreenMode == .edit, let transaction = transaction {
+            selectedCategory = categories.first { $0.id == transaction.categoryId }
+            amountString = transaction.amount.description
+            date = transaction.transactionDate
+            comment = transaction.comment ?? ""
+        } else {
+            selectedCategory = categories.first { $0.direction == direction }
+        }
+        isLoading = false
+    }
     
-    func createTransaction(_ transaction: Transaction) async {
-        do {
-            try await transactionService.createTransaction(transaction)
-            await self.loadData()
-        } catch {
-            self.error = error
+    func saveTransaction() {
+        guard isFormValid else {
+            showValidationAlert = true
+            return
+        }
+        
+        guard let selectedCategory = selectedCategory,
+              let amount = Decimal(string: amountString) else { return }
+        
+        let transaction = Transaction(
+            id: transactionScreenMode == .edit ? transaction?.id ?? 0 : 0,
+            accountId: 1,
+            categoryId: selectedCategory.id,
+            amount: amount,
+            transactionDate: date,
+            comment: comment.isEmpty ? nil : comment,
+            createdAt: transactionScreenMode == .edit ? transaction?.createdAt ?? Date.now : Date.now,
+            updatedAt: Date.now
+        )
+        
+        Task {
+            isLoading = true
+            if transactionScreenMode == .edit {
+                do {
+                    try await transactionService.editTransaction(transaction)
+                    await loadData()
+                    
+                } catch {
+                    self.error = error
+                }
+            } else {
+                do {
+                    try await transactionService.createTransaction(transaction)
+                    await loadData()
+                } catch {
+                    self.error = error
+                }
+            }
+            amountString = ""
+            comment = ""
+            showTransactionView = false
+            isLoading = false
         }
     }
     
-    func editTransaction(_ transaction: Transaction) async {
-        do {
-            try await transactionService.editTransaction(transaction)
-            await self.loadData()
-        } catch {
-            self.error = error
-        }
-    }
-
-    func deleteTransaction(_ transaction: Transaction) async {
+    func deleteTransaction() async {
+        guard let transaction = transaction else { return }
+        isLoading = true
         do {
             try await transactionService.deleteTransaction(transaction)
-            await self.loadData()
+            await loadData()
         } catch {
             self.error = error
         }
+        amountString = ""
+        comment = ""
+        showTransactionView = false
+        isLoading = false
     }
+
 
 
 }

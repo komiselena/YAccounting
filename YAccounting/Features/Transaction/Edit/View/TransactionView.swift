@@ -11,130 +11,141 @@ struct TransactionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
 
-    @State private var currentPhase: TransactionDetails = .edit
     @StateObject var viewModel: TransactionViewModel
+    @StateObject var balanceViewModel: BalanceViewModel
 
-    @State private var category: Category?
-    @State private var amount: Decimal = 0.0
-    @State private var date: Date = Date.now
-    @State private var time: Date = Date.now
-    @State private var comment: String = ""
-
-    private var isFormValid: Bool {
-        category != nil && !amountString.isEmpty && Decimal(string: amountString) != nil
-    }
-    
     private var decimalSeparator: String {
         locale.decimalSeparator ?? "."
     }
 
+    
+    init(viewModel: TransactionViewModel) {
+        self._viewModel = StateObject(wrappedValue: viewModel)
+        self._balanceViewModel = StateObject(wrappedValue: BalanceViewModel())
+    }
+    
     var body: some View {
-        VStack{
-            Form {
-                Section {
-                    Picker("Статья", selection: $category) {
-                        Text("Не выбрано").tag(nil as Category?)
-                        ForEach(viewModel.categories, id: \.self) { category in
-                            Text("\(category.emoji) \(category.name)").tag(category as Category?)
+        NavigationStack{
+            if viewModel.isLoading {
+                ProgressView()
+            } else {
+                
+                Form {
+                    Section {
+                        Picker("Статья", selection: $viewModel.selectedCategory) {
+                            ForEach(viewModel.categories.filter { $0.direction == viewModel.direction }, id: \.self) { category in
+                                Text("\(category.emoji) \(category.name)").tag(category as Category?)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        
+                        HStack {
+                            Text("Сумма")
+                            Spacer()
+                            TextField("0", text: $viewModel.amountString)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.trailing)
+                                .keyboardType(.decimalPad)
+                                .onChange(of: viewModel.amountString) { newValue in
+                                    let filtered = newValue.filter { char in
+                                        char.isNumber || String(char) == decimalSeparator
+                                    }
+                                    
+                                    let components = filtered.components(separatedBy: decimalSeparator)
+                                    if components.count > 2 {
+                                        viewModel.amountString = components[0] + decimalSeparator + components[1]
+                                    } else {
+                                        viewModel.amountString = filtered
+                                    }
+                                }
+                            Text("\(balanceViewModel.currentCurrency.rawValue)")
+                                .foregroundStyle(.secondary)
+
+                        }
+                        
+                        DatePicker("Дата", selection: $viewModel.date, in: ...Date.now, displayedComponents: .date)
+                        //                        .accentColor(.accentColor)
+                        //                        .labelsHidden()
+                        //                        .datePickerStyle(.colored(backgroundColor: .operationImageBG))
+                        
+                        DatePicker("Время", selection: $viewModel.date, displayedComponents: .hourAndMinute)
+                        //                        .accentColor(.accentColor)
+                        //                        .labelsHidden()
+                        //                        .datePickerStyle(.colored(backgroundColor: .operationImageBG))
+                        
+                        ZStack(alignment: .leading) {
+                            if viewModel.comment.isEmpty {
+                                Text("Комментарий")
+                                    .foregroundColor(.secondary)
+                            }
+                            TextField("", text: $viewModel.comment)
+                                .foregroundColor(.primary)
                         }
                     }
-                    .pickerStyle(.navigationLink)
                     
-                    HStack {
-                        Text("Сумма")
-                        Spacer()
-                        TextField("0", text: $amountString)
-                            .multilineTextAlignment(.trailing)
-                            .keyboardType(.decimalPad)
-                            .onChange(of: amountString) { newValue in
-                                // Validate input - only numbers and one decimal separator
-                                let filtered = newValue.filter { char in
-                                    char.isNumber || String(char) == decimalSeparator
-                                }
-                                
-                                // Allow only one decimal separator
-                                let components = filtered.components(separatedBy: decimalSeparator)
-                                if components.count > 2 {
-                                    amountString = components[0] + decimalSeparator + components[1]
-                                } else {
-                                    amountString = filtered
+                    if viewModel.transactionScreenMode == .edit {
+                        Section {
+                            Button(role: .destructive) {
+                                viewModel.showDeleteConfirmation = true
+                            } label: {
+                                HStack {
+                                    Spacer()
+                                    Text("Удалить")
+                                    Spacer()
                                 }
                             }
-                    }
-                    
-                    DatePicker("Дата", selection: $date, displayedComponents: .date)
-                        .accentColor(.tint)
-                        .datePickerStyle(.compact)
-                        .disabled(date > Date.now) // Disable future dates
-                    
-                    DatePicker("Время", selection: $date, displayedComponents: .hourAndMinute)
-                        .accentColor(.tint)
-                        .datePickerStyle(.compact)
-                    
-                    ZStack(alignment: .leading) {
-                        if comment.isEmpty {
-                            Text("Комментарий")
-                                .foregroundColor(.gray)
                         }
-                        TextField("", text: $comment)
-                            .foregroundColor(.primary)
                     }
                 }
-            }
-
-            .navigationTitle(viewModel.direction == .income ? "Мои Доходы" : "Мои Расходы")
-            
-        }
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Отмена") {
-                    dismiss()
-                }
-            }
-            
-            ToolbarItem(placement: .confirmationAction) {
-                Button(viewModel.mode == .edit ? "Сохранить" : "Создать") {
-                    if isFormValid {
-                        saveTransaction()
-                    } else {
-                        showValidationAlert = true
+                .navigationTitle(viewModel.direction == .income ? "Мои Доходы" : "Мои Расходы")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Отмена") {
+                            dismiss()
+                            viewModel.amountString = ""
+                            viewModel.comment = ""
+                        }
+                    }
+                    
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(viewModel.transactionScreenMode == .edit ? "Сохранить" : "Создать") {
+                            viewModel.saveTransaction()
+                        }
                     }
                 }
-            }
-            
-            if viewModel.mode == .edit {
-                ToolbarItem(placement: .bottomBar) {
-                    Button("Удалить", role: .destructive) {
-                        viewModel.deleteTransaction()
-                        dismiss()
-                    }
-                }
+                .tint(.tint)
             }
         }
-        .alert("Заполните все поля", isPresented: $showValidationAlert) {
+        .alert("Заполните все поля", isPresented: $viewModel.showValidationAlert) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Пожалуйста, выберите категорию, укажите сумму и заполните все обязательные поля")
         }
-        .onAppear {
-            if viewModel.mode == .edit, let transaction = viewModel.transaction {
-                category = viewModel.categories.first(where: { $0.id == transaction.categoryId })
-                amountString = transaction.amount.formatted()
-                date = transaction.transactionDate
-                comment = transaction.comment ?? ""
+        .alert("Удалить операцию?", isPresented: $viewModel.showDeleteConfirmation) {
+            Button("Удалить", role: .destructive) {
+                Task {
+                    await viewModel.deleteTransaction()
+                }
             }
+            Button("Отмена", role: .cancel) {}
+        }
+        .alert("Ошибка", isPresented: .constant(viewModel.error != nil)) {
+            Button("OK") { viewModel.error = nil }
+        } message: {
+            Text(viewModel.error?.localizedDescription ?? "Неизвестная ошибка")
+        }
+        .task {
+            await viewModel.loadInitialData()
+            await balanceViewModel.loadBankAccountData()
         }
 
-
     }
+    
 }
 
 #Preview {
-    TransactionView(viewModel: TransactionViewModel(direction: .income))
-}
-
-
-enum TransactionDetails {
-    case creation
-    case edit
+    TransactionView(
+        viewModel: TransactionViewModel(direction: .income)
+        
+    )
 }
