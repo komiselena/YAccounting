@@ -53,6 +53,30 @@ final class TransactionViewModel: ObservableObject {
         selectedCategory != nil && !amountString.isEmpty && Decimal(string: amountString) != nil
     }
         
+    
+    private let numberFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale.current
+        formatter.numberStyle = .decimal
+        return formatter
+    }()
+
+    func validateAmount(_ input: String) -> String {
+        let decimalSeparator = numberFormatter.decimalSeparator ?? "."
+        let allowedCharacters = CharacterSet(charactersIn: "0123456789" + decimalSeparator)
+        let filtered = input.components(separatedBy: allowedCharacters.inverted).joined()
+        
+        let components = filtered.components(separatedBy: decimalSeparator)
+        switch components.count {
+        case 1 where components[0].count > 10:
+            return String(components[0].prefix(10))
+        case 2 where components[1].count > 2:
+            return components[0] + decimalSeparator + String(components[1].prefix(2))
+        default:
+            return filtered
+        }
+    }
+
 
     init(direction: Direction, transaction: Transaction? = nil) {
         self.direction = direction
@@ -146,7 +170,6 @@ final class TransactionViewModel: ObservableObject {
         date = Date.now
         showTransactionView = false
     }
-
 
 
 }

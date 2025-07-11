@@ -47,16 +47,7 @@ struct TransactionView: View {
                                 .multilineTextAlignment(.trailing)
                                 .keyboardType(.decimalPad)
                                 .onChange(of: viewModel.amountString) { newValue in
-                                    let filtered = newValue.filter { char in
-                                        char.isNumber || String(char) == decimalSeparator
-                                    }
-                                    
-                                    let components = filtered.components(separatedBy: decimalSeparator)
-                                    if components.count > 2 {
-                                        viewModel.amountString = components[0] + decimalSeparator + components[1]
-                                    } else {
-                                        viewModel.amountString = filtered
-                                    }
+                                    viewModel.amountString = viewModel.validateAmount(newValue)
                                 }
                             Text("\(balanceViewModel.currentCurrency.rawValue)")
                                 .foregroundStyle(.secondary)

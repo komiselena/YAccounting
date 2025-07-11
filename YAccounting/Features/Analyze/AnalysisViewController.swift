@@ -1,3 +1,10 @@
+//
+//  AnalysisViewController.swift
+//  YAccounting
+//
+//  Created by Mac on 08.07.2025.
+//
+
 import UIKit
 
 class AnalysisViewController: UIViewController {
@@ -10,12 +17,8 @@ class AnalysisViewController: UIViewController {
 
     private var transactions: [Transaction] = []
 
-    private var sortedBy: SortOption = .date
+    private var sortedBy: SortOption = .byDate
 
-    private enum SortOption {
-        case date
-        case amount
-    }
 
     init(transactions: [Transaction], categories: [Category]) {
         self.allTransactions = transactions
@@ -49,6 +52,15 @@ class AnalysisViewController: UIViewController {
         let button = UIBarButtonItem(title: "Сортировка", style: .plain, target: self, action: #selector(sortButtonTapped))
         return button
     }()
+    
+    private lazy var sortValueLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 16)
+        label.textColor = .systemBlue
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
     
     private lazy var periodView: UIView = {
         let view = UIView()
@@ -104,7 +116,7 @@ class AnalysisViewController: UIViewController {
     private lazy var operationsLabel: UILabel = {
         let label = UILabel()
         label.text = "ОПЕРАЦИИ"
-        label.font = .boldSystemFont(ofSize: 14)
+        label.font = .systemFont(ofSize: 14)
         label.textColor = .secondaryLabel
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -176,6 +188,20 @@ class AnalysisViewController: UIViewController {
         verticalStack.spacing = 12
         verticalStack.translatesAutoresizingMaskIntoConstraints = false
         
+        let sortTitle = UILabel()
+        sortTitle.text = "Сортировка"
+        sortTitle.font = .systemFont(ofSize: 16)
+        
+        sortValueLabel.text = sortedBy == .byDate ? "По дате" : "По сумме" // Используем свойство
+        
+        let sortRow = makeRow(titleLabel: sortTitle, valueView: sortValueLabel, isLast: false)
+
+        
+        let sortTap = UITapGestureRecognizer(target: self, action: #selector(showSortOptions))
+        sortRow.addGestureRecognizer(sortTap)
+        sortRow.isUserInteractionEnabled = true
+
+        
         let startRow = makeRow(titleLabel: startLabel, valueView: startDateButton, isLast: false)
         let endRow = makeRow(titleLabel: endLabel, valueView: endDateButton, isLast: false)
         let sumTitle = UILabel()
@@ -183,7 +209,8 @@ class AnalysisViewController: UIViewController {
         sumTitle.font = .systemFont(ofSize: 16)
         let sumRow = makeRow(titleLabel: sumTitle, valueView: amountLabel, isLast: true)
         
-        [startRow, endRow, sumRow].forEach { verticalStack.addArrangedSubview($0) }
+        
+        [startRow, endRow, sortRow, sumRow].forEach { verticalStack.addArrangedSubview($0) }
         
         periodView.backgroundColor = .systemBackground
         periodView.addSubview(verticalStack)
@@ -215,7 +242,34 @@ class AnalysisViewController: UIViewController {
         tableHeightConstraint?.isActive = true
         operationsContainer.bottomAnchor.constraint(equalTo: tableView.bottomAnchor).isActive = true
     }
-    
+
+    @objc private func showSortOptions() {
+        let pickerVC = SortPickerViewController()
+        pickerVC.selectedOption = sortedBy
+        pickerVC.modalPresentationStyle = .overCurrentContext
+        pickerVC.modalTransitionStyle = .crossDissolve
+        
+        pickerVC.completion = { [weak self] option in
+            self?.sortedBy = option
+            self?.sortTransactions()
+        }
+        
+        present(pickerVC, animated: true)
+    }
+    private func sortTransactions() {
+        switch sortedBy {
+        case .byDate:
+            transactions.sort { $0.transactionDate > $1.transactionDate }
+        case .byAmount:
+            transactions.sort { $0.amount > $1.amount }
+        }
+        tableView.reloadData()
+        tableView.layoutIfNeeded()
+        tableHeightConstraint?.constant = tableView.contentSize.height
+        
+        sortValueLabel.text = sortedBy == .byDate ? "По дате" : "По сумме"
+    }
+
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             periodView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
@@ -244,12 +298,12 @@ class AnalysisViewController: UIViewController {
         let alert = UIAlertController(title: "Сортировка", message: nil, preferredStyle: .actionSheet)
         
         alert.addAction(UIAlertAction(title: "По дате", style: .default, handler: { [weak self] _ in
-            self?.sortedBy = .date
+            self?.sortedBy = .byDate
             self?.sortTransactions()
         }))
         
         alert.addAction(UIAlertAction(title: "По сумме", style: .default, handler: { [weak self] _ in
-            self?.sortedBy = .amount
+            self?.sortedBy = .byAmount
             self?.sortTransactions()
         }))
         
@@ -311,18 +365,6 @@ class AnalysisViewController: UIViewController {
     private func updateTotalAmount() {
         let totalAmount = transactions.reduce(Decimal(0)) { $0 + $1.amount }
         amountLabel.text = "\(formatAmount(totalAmount)) ₽"
-    }
-    
-    private func sortTransactions() {
-        switch sortedBy {
-        case .date:
-            transactions.sort { $0.transactionDate > $1.transactionDate }
-        case .amount:
-            transactions.sort { $0.amount > $1.amount }
-        }
-        tableView.reloadData()
-        tableView.layoutIfNeeded()
-        tableHeightConstraint?.constant = tableView.contentSize.height
     }
     
     private func formatDate(_ date: Date) -> String {

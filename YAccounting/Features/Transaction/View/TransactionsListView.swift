@@ -79,7 +79,7 @@ struct TransactionsListView: View {
                     viewModel.showTransactionView = true
                 } label : {
                     Image(systemName: "plus")
-                        .font(.largeTitle)
+                        .font(.title)
                         .foregroundStyle(.white)
                         .padding()
                         .background(
@@ -87,7 +87,9 @@ struct TransactionsListView: View {
                                 .fill(.accent)
                         )
                 }
-                    .padding()
+                    .padding(.bottom, 30)
+                    .padding(.trailing, 16)
+
                 ,alignment: .bottomTrailing
             )
             .toolbar(content: {
