@@ -8,8 +8,9 @@
 import SwiftUI
 
 struct MyHistoryView: View {
-    
+    @StateObject var viewModel: TransactionViewModel
     @StateObject private var historyViewModel: MyHistoryViewModel
+
     @State var direction: Direction
     
     private var sortedTransactions: [Transaction] {
@@ -21,7 +22,8 @@ struct MyHistoryView: View {
         }
     }
     
-    init(direction: Direction) {
+    init(direction: Direction, viewModel: TransactionViewModel) {
+        self._viewModel = StateObject(wrappedValue: viewModel)
         _historyViewModel = StateObject(wrappedValue: MyHistoryViewModel(direction: direction))
         self.direction = direction
     }
@@ -84,7 +86,14 @@ struct MyHistoryView: View {
                 } else {
                     ForEach(sortedTransactions) { transaction in
                         let category = historyViewModel.categories.first { $0.id == transaction.categoryId }
-                        TransactionListRow(transaction: transaction, category: category)
+                        Button {
+                            viewModel.transactionScreenMode = .edit
+                            viewModel.transaction = transaction
+                            viewModel.showTransactionView = true
+                        } label: {
+                            TransactionListRow(transaction: transaction, category: category)
+
+                        }
                     }
                 }
 
@@ -93,8 +102,13 @@ struct MyHistoryView: View {
         .navigationTitle("Моя история")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink(destination: EmptyView()) {
+                NavigationLink {
+                    AnalysisView(transactions: historyViewModel.transactions, categories: historyViewModel.categories)
+                        .navigationTitle("Анализ")
+                        .background(Color(.systemGroupedBackground))
+                } label: {
                     Image(systemName: "document")
+
                 }
             }
         }
@@ -112,7 +126,7 @@ struct MyHistoryView: View {
 }
 
 #Preview {
-    MyHistoryView(direction: .outcome)
+    MyHistoryView(direction: .outcome, viewModel: TransactionViewModel(direction: .outcome))
 }
 
 
