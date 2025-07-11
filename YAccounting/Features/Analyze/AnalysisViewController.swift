@@ -192,7 +192,7 @@ class AnalysisViewController: UIViewController {
         sortTitle.text = "Сортировка"
         sortTitle.font = .systemFont(ofSize: 16)
         
-        sortValueLabel.text = sortedBy == .byDate ? "По дате" : "По сумме" // Используем свойство
+        sortValueLabel.text = sortedBy == .byDate ? "По дате" : "По сумме" 
         
         let sortRow = makeRow(titleLabel: sortTitle, valueView: sortValueLabel, isLast: false)
 
