@@ -130,7 +130,7 @@ class TransactionCell: UITableViewCell {
         formatter.numberStyle = .decimal
         formatter.groupingSeparator = " "
         formatter.maximumFractionDigits = 2
-        let amountString = formatter.string(from: transaction.amount as NSDecimalNumber) ?? "\(transaction.amount)"
+        let amountString = "\(transaction.amount)"
         amountLabel.text = "\(amountString) ₽"
     }
 }

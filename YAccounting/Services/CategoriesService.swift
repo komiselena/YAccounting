@@ -18,8 +18,15 @@ final class CategoriesService: ObservableObject {
 
     ]
     
+    var categories: [Category] = []
+    
     func categories() async throws -> [Category] {
-        
+        do{
+            categories = try await NetworkClient.shared.fetchDecodeData(enpointValue: "api/v1/categories", dataType: Category.self)
+            return categories
+        }catch{
+            print (error)
+        }
         return mockCategories
     }
         

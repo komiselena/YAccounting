@@ -45,10 +45,12 @@ final class TransactionViewModel: ObservableObject {
     @Published var selectedCategory: Category?
     @Published var amountString: String = ""
     @Published var date: Date = Date.now
-    @Published var comment: String = ""
+    @Published var comment: String?
     @Published var showValidationAlert = false
     @Published var showDeleteConfirmation = false
     
+    private var loadDataTask: Task<Void, Never>?
+
     private var isFormValid: Bool {
         selectedCategory != nil && !amountString.isEmpty && Decimal(string: amountString) != nil
     }
@@ -82,35 +84,42 @@ final class TransactionViewModel: ObservableObject {
         self.direction = direction
         self.transaction = transaction
     }
+    
+    deinit {
+        loadDataTask?.cancel()
+    }
+
 
     func loadData() async {
+        loadDataTask?.cancel()
+
         isLoading = true
-        do {
-            categories = try await categoriesService.categories()
-            let allTransactions = try await transactionService.fetchTransactions(for: dateRange)
-            transactions = allTransactions.filter { transaction in
-                guard let category = categories.first(where: { $0.id == transaction.categoryId }) else { return false }
-                return category.direction == direction
+        defer { isLoading = false }
+
+        loadDataTask = Task {
+            do {
+                categories = try await categoriesService.categories()
+                let responses = try await transactionService.fetchTransactions(for: dateRange)
+                
+                if !Task.isCancelled {
+                    let mappedTransactions = responses
+                        .map { $0.toTransaction() }
+                        .filter { transaction in
+                            guard let category = categories.first(where: { $0.id == transaction.categoryId }) else {
+                                return false
+                            }
+                            return category.direction == direction
+                        }
+                    
+                    transactions = mappedTransactions
+                }
+            } catch {
+                if !Task.isCancelled {
+                    self.error = error
+                }
             }
-        } catch {
-            self.error = error
+            isLoading = false
         }
-        isLoading = false
-    }
-        
-    func loadInitialData() async {
-        isLoading = true
-        await loadData()
-        
-        if transactionScreenMode == .edit, let transaction = transaction {
-            selectedCategory = categories.first { $0.id == transaction.categoryId }
-            amountString = transaction.amount.description
-            date = transaction.transactionDate
-            comment = transaction.comment ?? ""
-        } else {
-            selectedCategory = categories.first { $0.direction == direction }
-        }
-        isLoading = false
     }
     
     func saveTransaction() {
@@ -130,7 +139,7 @@ final class TransactionViewModel: ObservableObject {
             categoryId: selectedCategory.id,
             amount: amount,
             transactionDate: date,
-            comment: comment.isEmpty ? nil : comment,
+            comment: comment,
             createdAt: transactionScreenMode == .edit ? transaction?.createdAt ?? Date.now : Date.now,
             updatedAt: Date.now
         )

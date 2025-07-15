@@ -65,12 +65,15 @@ struct TransactionView: View {
 //                                                .datePickerStyle(.colored(backgroundColor: .operationImageBG))
                         
                         ZStack(alignment: .leading) {
-                            if viewModel.comment.isEmpty {
+                            if (viewModel.comment ?? "").isEmpty {
                                 Text("Комментарий")
                                     .foregroundColor(.secondary)
                             }
-                            TextField("", text: $viewModel.comment)
-                                .foregroundColor(.primary)
+                            TextField("", text: Binding(
+                                get: { viewModel.comment ?? "" },
+                                set: { viewModel.comment = $0.isEmpty ? nil : $0 }
+                            ))
+                            .foregroundColor(.primary)
                         }
                     }
                     
@@ -92,8 +95,6 @@ struct TransactionView: View {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Отмена") {
                             dismiss()
-                            viewModel.amountString = ""
-                            viewModel.comment = ""
                         }
                     }
                     
@@ -125,7 +126,7 @@ struct TransactionView: View {
             Text(viewModel.error?.localizedDescription ?? "Неизвестная ошибка")
         }
         .task {
-            await viewModel.loadInitialData()
+            await viewModel.loadData()
             await balanceViewModel.loadBankAccountData()
         }
 

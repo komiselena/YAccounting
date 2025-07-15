@@ -26,13 +26,13 @@ final class BalanceEditViewModel: ObservableObject {
 
     
     func startEditingBalance() {
-        balanceText = balanceViewModel?.bankAccount?.balance.formatted() ?? "0"
+        balanceText = balanceViewModel?.bankAccount?.balance ?? "0"
         editBalance = true
     }
     
     func submitBalance() async {
         guard let viewModel = balanceViewModel else { return }
-        let currentBalance = viewModel.bankAccount?.balance ?? 0
+        let currentBalance = Decimal(string: viewModel.bankAccount?.balance ?? "0") ?? 0
         let newBalance = Decimal(string: balanceText) ?? currentBalance
         
         if newBalance == currentBalance {

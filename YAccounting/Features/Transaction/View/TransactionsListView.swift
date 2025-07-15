@@ -27,7 +27,7 @@ struct TransactionsListView: View {
     var body: some View {
         NavigationStack{
             VStack{
-                if viewModel.isLoading && sortedTransactions.isEmpty {
+                if viewModel.isLoading {
                     ProgressView()
                         .tint(.tint)
                     
@@ -59,8 +59,12 @@ struct TransactionsListView: View {
                             ForEach(sortedTransactions){ transaction in
                                 let category = viewModel.categories.first { $0.id == transaction.categoryId }
                                 Button {
-                                    viewModel.transactionScreenMode = .edit
                                     viewModel.transaction = transaction
+                                    viewModel.transactionScreenMode = .edit
+                                    print(transaction)
+                                    viewModel.selectedCategory = viewModel.categories.first(where: {$0.id == transaction.categoryId } ) ??  viewModel.categories.first
+                                    viewModel.comment = transaction.comment
+                                    viewModel.amountString = String(describing: transaction.amount)
                                     viewModel.showTransactionView = true
                                 } label: {
                                     TransactionListRow(transaction: transaction, category: category)

@@ -52,23 +52,56 @@ final actor TransactionService: ObservableObject, TransactionServiceProtocol {
 
     ]
 
-    func fetchTransactions(for period: ClosedRange<Date>) async throws -> [Transaction] {
-        return mockTransactions.filter{ period.contains($0.transactionDate) }
-    }
+    var transactions: [TransactionResponse] = []
     
-    func createTransaction(_ transaction: Transaction) async throws {
-        mockTransactions.append(transaction)
-    }
-    
-    func editTransaction(_ transaction: Transaction) async throws {
-        if let index = mockTransactions.firstIndex(where: { $0.id == transaction.id }) {
-            mockTransactions[index] = transaction
+    func fetchTransactions(for period: ClosedRange<Date>) async throws -> [TransactionResponse] {
+        do{
+            transactions = try await NetworkClient.shared.fetchDecodeData(enpointValue: "api/v1/transactions/account/1/period?startDate=\(period.lowerBound.formatPeriod())&endDate=\(period.upperBound.formatPeriod())", dataType: TransactionResponse.self)
+            return transactions
+        }catch{
+            print (error)
+            throw URLError(.unknown)
         }
     }
     
+//    func fetchTransaction(id: Int) async throws {
+//        do{
+//            try await NetworkClient.shared.requestTransactionOperation(id, httpMethod: "GET")
+//        }catch{
+//            print (error)
+//            throw URLError(.unknown)
+//        }
+//    }
+
+    
+    func createTransaction(_ transaction: Transaction) async throws {
+        do{
+            try await NetworkClient.shared.requestTransactionOperation(transaction, httpMethod: "POST", isDelete: false, isCreate: true)
+        }catch{
+            print (error)
+            throw URLError(.unknown)
+        }
+    }
+    
+    func editTransaction(_ transaction: Transaction) async throws {
+            do{
+                try await NetworkClient.shared.requestTransactionOperation(transaction, httpMethod: "PUT")
+            }catch{
+                print (error)
+                throw URLError(.unknown)
+            }
+    }
+    
     func deleteTransaction(_ transaction: Transaction) async throws {
-        mockTransactions.removeAll(where: { $0.id == transaction.id })
+        do{
+            try await NetworkClient.shared.requestTransactionOperation(transaction, httpMethod: "DELETE", isDelete: true)
+        }catch{
+            print (error)
+            throw URLError(.unknown)
+        }
+
     }
     
 }
+
 

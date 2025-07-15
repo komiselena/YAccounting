@@ -31,7 +31,7 @@ extension TransactionResponse{
               let accountBalance = Decimal(string: accountBalanceString) else {
             return nil
         }
-        let account = Account(id: accountId, name: accountName, balance: accountBalance, currency: accountCurrency)
+        let account = Account(id: accountId, name: accountName, balance: String(describing: accountBalance), currency: accountCurrency)
 
         guard let categoryId = categoryDict["id"] as? Int,
               let categoryName = categoryDict["name"] as? String,

@@ -36,7 +36,7 @@ final class BalanceViewModel: ObservableObject {
     
     func updateBalance(_ newBalance: Decimal) async {
         guard var account = bankAccount else { return }
-        account.balance = newBalance
+        account.balance = String(describing: newBalance)
         do{
             try await bankAccountService.changeBankAccount(account)
             bankAccount = account

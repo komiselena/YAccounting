@@ -12,7 +12,7 @@ extension Transaction {
             "id": self.id,
             "accountId": self.accountId,
             "categoryId": self.categoryId,
-            "amount": NSDecimalNumber(decimal: self.amount).stringValue,
+            "amount": self.amount,
             "transactionDate": ISO8601DateFormatter().string(from: self.transactionDate),
             "comment": self.comment,
             "createdAt": ISO8601DateFormatter().string(from: self.createdAt),

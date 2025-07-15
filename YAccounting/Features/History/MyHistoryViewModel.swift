@@ -32,7 +32,7 @@ final class MyHistoryViewModel: ObservableObject {
     var totalAmount: Decimal {
         transactions.reduce(0) { $0 + $1.amount }
     }
-    
+
     @Published var error: Error?
 
     @Published var sortOption: SortOption = .byDate
@@ -47,11 +47,18 @@ final class MyHistoryViewModel: ObservableObject {
         isLoading = true
         do {
             categories = try await categoriesService.categories()
-            let allTransactions = try await transactionService.fetchTransactions(for: dateRange)
-            transactions = allTransactions.filter { transaction in
-                guard let category = categories.first(where: { $0.id == transaction.categoryId }) else { return false }
-                return category.direction == direction
-            }
+            let responses = try await transactionService.fetchTransactions(for: dateRange)
+
+            let mappedTransactions = responses
+                .map { $0.toTransaction() }
+                .filter { transaction in
+                    guard let category = categories.first(where: { $0.id == transaction.categoryId }) else {
+                        return false
+                    }
+                    return category.direction == direction
+                }
+
+            transactions = mappedTransactions
         } catch {
             self.error = error
         }
