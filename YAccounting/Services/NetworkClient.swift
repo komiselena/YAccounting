@@ -13,9 +13,6 @@ final class NetworkClient {
     
     let urlString = "https://shmr-finance.ru/"
     
-    static let shared = NetworkClient()
-    private init() { }
-
     private var decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { decoder in
@@ -32,8 +29,7 @@ final class NetworkClient {
             for format in formats {
                 let formatter = DateFormatter()
                 formatter.dateFormat = format
-                formatter.locale = Locale(identifier: "en_US_POSIX")
-                formatter.timeZone = TimeZone(secondsFromGMT: 0)
+                formatter.locale = Locale(identifier: "ru_RU")
 
                 if let date = formatter.date(from: dateString) {
                     return date
@@ -49,92 +45,121 @@ final class NetworkClient {
     }()
 
     
-    func request(endpointValue: String) async throws -> Data {
-        let endpoint = urlString + endpointValue
-        print(endpoint)
+    func request<T: Decodable>(endpoint: String, method: String = "GET", body: Data? = nil) async throws -> T {
+        let fullURL = urlString + endpoint
+        guard let url = URL(string: fullURL) else {
+            print("❌ Invalid URL: \(fullURL)")
+            throw NetworkError.invalidURL
+        }
         
-        var request = URLRequest(url: URL(string: endpoint)!)
+        var request = URLRequest(url: url)
+        request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        print(request)
         
-        try Task.checkCancellation()
+        if method == "DELETE" {
+            request.setValue("*/*", forHTTPHeaderField: "accept")
+        } else {
+            request.setValue("application/json", forHTTPHeaderField: "accept")
+        }
 
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let response = response as? HTTPURLResponse,
-              validStatus.contains(response.statusCode) else {
-            throw NetworkError.badResponse
-        }
-        
-        print(data)
-        return data
-    }
-    
-    func requestTransactionOperation(_ transaction: Transaction, httpMethod: String, isDelete: Bool = false, isCreate: Bool = false) async throws {
-        let endpoint = isCreate ? "https://shmr-finance.ru/api/v1/transactions" : "https://shmr-finance.ru/api/v1/transactions/\(transaction.id)"
-        
-        var request = URLRequest(url: URL(string: endpoint)!)
-        request.httpMethod = httpMethod
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue(isDelete ? "*/*" : "application/json", forHTTPHeaderField: "accept")
-        if !isDelete{
+        if let body = body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body
+            print("📤 Request Body: \(String(data: body, encoding: .utf8) ?? "Unable to decode body")")
         }
         
-        let requestBody = transaction.jsonObject
+        print("🚀 Sending \(method) request to: \(url.absoluteString)")
+        print("🔑 Authorization: Bearer \(token)")
+        print("📝 Headers: \(request.allHTTPHeaderFields ?? [:])")
         
         do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        } catch{
-            throw NetworkError.decodingError
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ No HTTP Response")
+                throw NetworkError.noResponse
+            }
+            
+            print("🔵 Response Status Code: \(httpResponse.statusCode)")
+            print("📥 Response Data: \(String(data: data, encoding: .utf8) ?? "Unable to decode response")")
+            
+            switch httpResponse.statusCode {
+            case 200...299:
+                print("✅ Request successful")
+            case 401:
+                print("❌ Unauthorized")
+                throw NetworkError.unauthorized
+            case 404:
+                print("❌ Not Found")
+                throw NetworkError.notFound
+            case 400:
+                print("❌ Bad Request")
+                let errorMessage = String(data: data, encoding: .utf8) ?? "Bad Request"
+                throw NetworkError.customError(message: errorMessage)
+            case 500...599:
+                print("❌ Server Error")
+                throw NetworkError.serverError
+            default:
+                print("❌ Unexpected Status Code: \(httpResponse.statusCode)")
+                throw NetworkError.unexpectedStatusCode(httpResponse.statusCode)
+            }
+
+            // Handle empty responses for DELETE requests
+            if T.self == EmptyResponse.self && data.isEmpty {
+                print("ℹ️ Empty response received - returning empty response object")
+                return EmptyResponse() as! T
+            }
+
+            do {
+                let decoded = try decoder.decode(T.self, from: data)
+                print("📦 Successfully decoded response to \(T.self)")
+                return decoded
+            } catch {
+                print("❌ Decoding Error: \(error)")
+                print("📦 Failed to decode: \(String(data: data, encoding: .utf8) ?? "Unable to decode error data")")
+                throw NetworkError.decodingError(error)
+            }
+        } catch {
+            print("❌ Network Request Failed: \(error)")
+            throw error
         }
-        
-        let (_, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse,
-              validStatus.contains(httpResponse.statusCode) else {
-            throw NetworkError.badResponse
-        }
-        
     }
+
+//    func requestTransactionOperation(_ transaction: Transaction, httpMethod: String, isDelete: Bool = false, isCreate: Bool = false) async throws {
+//        let endpoint = isCreate ? "https://shmr-finance.ru/api/v1/transactions" : "https://shmr-finance.ru/api/v1/transactions/\(transaction.id)"
+//        
+//        var request = URLRequest(url: URL(string: endpoint)!)
+//        request.httpMethod = httpMethod
+//        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+//        request.setValue(isDelete ? "*/*" : "application/json", forHTTPHeaderField: "accept")
+//        if !isDelete{
+//            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+//        }
+//        
+//        let requestBody = transaction.jsonObject
+//        
+//        do {
+//            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+//        } catch{
+//            throw NetworkError.decodingError(error)
+//        }
+//        
+//        let (_, response) = try await URLSession.shared.data(for: request)
+//        
+//        guard let httpResponse = response as? HTTPURLResponse else {
+//            throw NetworkError.unknown
+//        }
+//
+//        switch httpResponse.statusCode {
+//        case 200...299: break
+//        case 401: throw NetworkError.unauthorized
+//        case 404: throw NetworkError.notFound
+//        case 500...599: throw NetworkError.serverError(httpResponse.statusCode)
+//        default: throw NetworkError.badResponse
+//        }
+//
+//    }
     
-    
-    func fetchDecodeData<T: Codable>(enpointValue: String, dataType: T.Type) async throws -> [T] {
-        do{
-            let data = try await self.request(endpointValue: enpointValue)
-            return try decoder.decode([T].self, from: data)
-        }catch{
-            print(error)
-            print(error.localizedDescription)
-            throw NetworkError.decodingError
-        }
-    }
-    
-}
-
-
-let validStatus = 200...299
-
-protocol HTTPDataDownloader: Sendable {
-    func httpData(from url: URL) async throws -> Data
-}
-
-extension URLSession: HTTPDataDownloader {
-    func httpData(from url: URL) async throws -> Data {
-        guard let (data, response) = try await self.data(from: url, delegate: nil) as? (Data, HTTPURLResponse),
-              validStatus.contains(response.statusCode) else {
-            throw NetworkError.networkError
-        }
-        return data
-    }
-}
-
-enum NetworkError: Error {
-    case badResponse
-    case invalidURL
-    case networkError
-    case decodingError
 }
 
 

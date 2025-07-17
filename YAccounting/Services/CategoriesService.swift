@@ -10,6 +10,12 @@ import Foundation
 
 final class CategoriesService: ObservableObject {
     
+    private let client: NetworkClient
+    
+    init(client: NetworkClient = NetworkClient()) {
+        self.client = client
+    }
+
     private var mockCategories: [Category] = [
         Category(id: 1, name: "Salary", emoji: "💸", isIncome: true),
         Category(id: 2, name: "House rent", emoji: "🏡", isIncome: false),
@@ -21,13 +27,8 @@ final class CategoriesService: ObservableObject {
     var categories: [Category] = []
     
     func categories() async throws -> [Category] {
-        do{
-            categories = try await NetworkClient.shared.fetchDecodeData(enpointValue: "api/v1/categories", dataType: Category.self)
-            return categories
-        }catch{
-            print (error)
-        }
-        return mockCategories
+        categories = try await client.request(endpoint: "api/v1/categories", method: "GET")
+        return categories
     }
         
     func fetchDirectionCategories(by direction: Direction) async throws -> [Category]{

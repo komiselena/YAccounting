@@ -15,8 +15,8 @@ extension Transaction {
             "amount": self.amount,
             "transactionDate": ISO8601DateFormatter().string(from: self.transactionDate),
             "comment": self.comment,
-            "createdAt": ISO8601DateFormatter().string(from: self.createdAt),
-            "updatedAt": ISO8601DateFormatter().string(from: self.updatedAt)
+            "createdAt": ISO8601DateFormatter().string(from: self.createdAt ?? Date.now),
+            "updatedAt": ISO8601DateFormatter().string(from: self.updatedAt ?? Date.now)
 
         ]
     }

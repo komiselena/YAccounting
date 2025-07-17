@@ -9,21 +9,26 @@ import Foundation
 
 final class BankAccountsService: BankAccountsServiceProtocol {
     
+    private let client: NetworkClient
+    
+    init(client: NetworkClient = NetworkClient()) {
+        self.client = client
+    }
+
     private var mockBankAccount: BankAccount = BankAccount(id: 1, userId: 1, name: "main", balance: "100000.9", currency: "RUB", createdAt: Date(), updatedAt: Date())
     
     var bankAccount: BankAccount?
     
     func fetchBankAccount() async throws -> BankAccount {
         do{
-            let bankAccounts = try await NetworkClient.shared.fetchDecodeData(enpointValue: "api/v1/accounts", dataType: BankAccount.self)
+            let bankAccounts: [BankAccount] = try await client.request(endpoint: "api/v1/accounts", method: "GET")
             bankAccount = bankAccounts.first ?? mockBankAccount
             print(bankAccount as Any)
             return bankAccount ?? mockBankAccount
         }catch{
-            print (error)
+            print(error)
+            return mockBankAccount
         }
-
-        return mockBankAccount
     }
     
     

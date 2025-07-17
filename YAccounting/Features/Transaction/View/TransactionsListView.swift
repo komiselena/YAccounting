@@ -9,6 +9,8 @@ import SwiftUI
 
 struct TransactionsListView: View {
     
+    @Environment(\.modelContext) var modelContext
+    
     @StateObject private var viewModel: TransactionViewModel
     
     init(direction: Direction) {
@@ -30,9 +32,6 @@ struct TransactionsListView: View {
                 if viewModel.isLoading {
                     ProgressView()
                         .tint(.tint)
-                    
-                } else if let error = viewModel.error {
-                    Text("Error: \(error.localizedDescription)")
                 }else{
                     List{
                         Section {
@@ -109,6 +108,14 @@ struct TransactionsListView: View {
             .navigationTitle(viewModel.direction == .outcome ? "Расходы сегодня" : "Доходы сегодня")
             
         }
+        .alert(item: $viewModel.alertState) { alertState in
+            Alert(
+                title: Text(alertState.title),
+                message: Text(alertState.message),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+
         .tint(Color("tintColor"))
         .task {
             await viewModel.loadData()

@@ -84,16 +84,20 @@ struct MyHistoryView: View {
                 } else if historyViewModel.transactions.isEmpty {
                     Text("Нет операций за выбранный период")
                 } else {
-                    ForEach(sortedTransactions) { transaction in
-                        let category = historyViewModel.categories.first { $0.id == transaction.categoryId }
+                    ForEach(sortedTransactions){ transaction in
+                        let category = viewModel.categories.first { $0.id == transaction.categoryId }
                         Button {
-                            viewModel.transactionScreenMode = .edit
                             viewModel.transaction = transaction
+                            viewModel.transactionScreenMode = .edit
+                            viewModel.selectedCategory = viewModel.categories.first(where: {$0.id == transaction.categoryId } ) ??  viewModel.categories.first
+                            viewModel.comment = transaction.comment
+                            viewModel.amountString = String(describing: transaction.amount)
                             viewModel.showTransactionView = true
                         } label: {
                             TransactionListRow(transaction: transaction, category: category)
 
                         }
+
                     }
                 }
 

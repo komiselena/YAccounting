@@ -80,7 +80,7 @@ struct TransactionView: View {
                     if viewModel.transactionScreenMode == .edit {
                         Section {
                             Button(role: .destructive) {
-                                viewModel.showDeleteConfirmation = true
+                                viewModel.showDeleteAlert()
                             } label: {
                                 HStack {
                                     Text("Удалить \(viewModel.direction == .income ? "доход" : "расход")")
@@ -107,23 +107,36 @@ struct TransactionView: View {
                 .tint(.tint)
             }
         }
-        .alert("Заполните все поля", isPresented: $viewModel.showValidationAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Пожалуйста, выберите категорию, укажите сумму и заполните все обязательные поля")
-        }
-        .alert("Удалить операцию?", isPresented: $viewModel.showDeleteConfirmation) {
-            Button("Удалить", role: .destructive) {
-                Task {
-                    await viewModel.deleteTransaction()
-                }
+        .alert(item: $viewModel.alertState) { alertState in
+            switch alertState.type {
+            case .validation:
+                return Alert(
+                    title: Text(alertState.title),
+                    message: Text(alertState.message),
+                    dismissButton: .default(Text("OK"))
+                )
+            case .deleteConfirmation:
+                return Alert(
+                    title: Text(alertState.title),
+                    message: Text(alertState.message),
+                    primaryButton: .destructive(Text("Удалить")) {
+                        Task {
+                            await viewModel.deleteTransaction()
+                            dismiss()
+
+                        }
+                    },
+                    secondaryButton: .cancel()
+                )
+            case .error:
+                return Alert(
+                    title: Text(alertState.title),
+                    message: Text(alertState.message),
+                    dismissButton: .default(Text("OK")) {
+                        viewModel.alertState = nil
+                    }
+                )
             }
-            Button("Отмена", role: .cancel) {}
-        }
-        .alert("Ошибка", isPresented: .constant(viewModel.error != nil)) {
-            Button("OK") { viewModel.error = nil }
-        } message: {
-            Text(viewModel.error?.localizedDescription ?? "Неизвестная ошибка")
         }
         .task {
             await viewModel.loadData()

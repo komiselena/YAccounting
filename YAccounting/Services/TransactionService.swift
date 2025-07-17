@@ -7,7 +7,28 @@
 
 import Foundation
 
-final actor TransactionService: ObservableObject, TransactionServiceProtocol {
+final class TransactionService: ObservableObject, TransactionServiceProtocol, @unchecked Sendable {
+    
+    private let client: NetworkClient
+    
+    init(client: NetworkClient = NetworkClient()) {
+        self.client = client
+    }
+
+    private var encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            var container = encoder.singleValueContainer()
+            let dateFormatter = ISO8601DateFormatter()
+            dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let dateString = dateFormatter.string(from: date)
+            try container.encode(dateString)
+        }
+        return encoder
+    }()
+
+    
+
     private var mockTransactions: [Transaction] = [
         Transaction(
             id: 1,
@@ -55,53 +76,65 @@ final actor TransactionService: ObservableObject, TransactionServiceProtocol {
     var transactions: [TransactionResponse] = []
     
     func fetchTransactions(for period: ClosedRange<Date>) async throws -> [TransactionResponse] {
-        do{
-            transactions = try await NetworkClient.shared.fetchDecodeData(enpointValue: "api/v1/transactions/account/1/period?startDate=\(period.lowerBound.formatPeriod())&endDate=\(period.upperBound.formatPeriod())", dataType: TransactionResponse.self)
-            return transactions
-        }catch{
-            print (error)
-            throw URLError(.unknown)
-        }
+        let endpoint = "api/v1/transactions/account/1/period?startDate=\(period.lowerBound.formatPeriod())&endDate=\(period.upperBound.formatPeriod())"
+        return try await client.request(endpoint: endpoint)
     }
-    
-//    func fetchTransaction(id: Int) async throws {
-//        do{
-//            try await NetworkClient.shared.requestTransactionOperation(id, httpMethod: "GET")
-//        }catch{
-//            print (error)
-//            throw URLError(.unknown)
-//        }
-//    }
 
-    
     func createTransaction(_ transaction: Transaction) async throws {
-        do{
-            try await NetworkClient.shared.requestTransactionOperation(transaction, httpMethod: "POST", isDelete: false, isCreate: true)
-        }catch{
-            print (error)
-            throw URLError(.unknown)
-        }
+        let endpoint = "api/v1/transactions"
+        let body = try encoder.encode(transaction)
+        print("Request body: \(String(data: body, encoding: .utf8) ?? "")")
+        let _: EmptyResponse = try await client.request(
+            endpoint: endpoint,
+            method: "POST",
+            body: body
+        )
+        NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
     }
-    
+
     func editTransaction(_ transaction: Transaction) async throws {
-            do{
-                try await NetworkClient.shared.requestTransactionOperation(transaction, httpMethod: "PUT")
-            }catch{
-                print (error)
-                throw URLError(.unknown)
-            }
+        let endpoint = "api/v1/transactions/\(transaction.id)"
+        
+        do {
+            let _: TransactionResponse = try await client.request(
+                endpoint: "api/v1/transactions/\(transaction.id)",
+                method: "GET"
+            )
+        } catch {
+            throw NetworkError.customError(message: "Transaction not found")
+        }
+        
+        let requestBody: [String: Any] = [
+            "accountId": transaction.accountId,
+            "categoryId": transaction.categoryId,
+            "amount": NSDecimalNumber(decimal: transaction.amount).stringValue,
+            "transactionDate": ISO8601DateFormatter().string(from: transaction.transactionDate),
+            "comment": transaction.comment ?? ""
+        ]
+        
+        
+        let body = try JSONSerialization.data(withJSONObject: requestBody)
+        let _: EmptyResponse = try await client.request(
+            endpoint: endpoint,
+            method: "PUT",
+            body: body
+        )
+        NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
     }
     
     func deleteTransaction(_ transaction: Transaction) async throws {
-        do{
-            try await NetworkClient.shared.requestTransactionOperation(transaction, httpMethod: "DELETE", isDelete: true)
-        }catch{
-            print (error)
-            throw URLError(.unknown)
-        }
-
+        let endpoint = "api/v1/transactions/\(transaction.id)"
+        let _: EmptyResponse = try await client.request(
+            endpoint: endpoint,
+            method: "DELETE"
+        )
+        NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
     }
-    
 }
 
 
+extension Notification.Name {
+    static let transactionsUpdated = Notification.Name("transactionsUpdated")
+}
+
+struct EmptyResponse: Decodable {}
