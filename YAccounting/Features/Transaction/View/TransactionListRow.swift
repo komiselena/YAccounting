@@ -9,7 +9,7 @@ import SwiftUI
 
 struct TransactionListRow: View {
     let transaction: Transaction
-    let category: Category?
+    let category: Category
     
     var body: some View {
         
@@ -18,12 +18,12 @@ struct TransactionListRow: View {
                 Circle()
                     .fill(.operationImageBG)
                     .frame(width: 40, height: 40)
-                Text("\(category?.emoji ?? "❓")")
+                Text("\(category.emoji )")
                 
             }
 
             VStack(alignment: .leading) {
-                Text(category?.name ?? "Other")
+                Text(category.name)
                     .foregroundStyle(.black)
                 Text(transaction.comment ?? "")
                         .font(.caption)

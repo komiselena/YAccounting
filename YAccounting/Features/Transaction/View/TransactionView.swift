@@ -131,6 +131,15 @@ struct TransactionView: View {
                         viewModel.alertState = nil
                     }
                 )
+            case .info:
+                return Alert(
+                    title: Text(alertState.title),
+                    message: Text(alertState.message),
+                    dismissButton: .default(Text("OK")) {
+                        viewModel.alertState = nil
+                    }
+                )
+
             }
         }
         .task {

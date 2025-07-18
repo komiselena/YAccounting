@@ -10,6 +10,7 @@ import SwiftUI
 struct TransactionsListView: View {
     @Environment(\.modelContext) var modelContext
     @StateObject private var viewModel: TransactionViewModel
+    @ObservedObject var networkMonitor = NetworkStatusMonitor.shared
 
     init(direction: Direction) {
         let categoriesService = CategoriesService()
@@ -32,60 +33,25 @@ struct TransactionsListView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if viewModel.isLoading && viewModel.transactions.isEmpty {
-                    ProgressView()
-                        .font(.title3)
-                        .tint(.tint)
-                } else {
-                    List {
-                        Section {
-                            Picker("Сортировка", selection: $viewModel.sortOption) {
-                                Text("По дате").tag(SortOption.byDate)
-                                Text("По сумме").tag(SortOption.byAmount)
-                            }
-                            .pickerStyle(.menu)
+            VStack(spacing: 10) {
+                if !networkMonitor.isConnected {
+                    OfflineBanner()
+                        .transition(.opacity)
+                        .animation(.easeInOut(duration: 0.3), value: networkMonitor.isConnected)
 
-                            HStack {
-                                Text("Всего")
-                                Spacer()
-                                Text("\(viewModel.totalAmount) \(Currency.RUB.rawValue)")
-                            }
-                            .font(.headline)
-                        }
-
-                        Section("ОПЕРАЦИИ") {
-                            ForEach(sortedTransactions) { transaction in
-                                let category = viewModel.categories.first { $0.id == transaction.categoryId }
-                                Button {
-                                    viewModel.transaction = transaction
-                                    viewModel.transactionScreenMode = .edit
-                                    viewModel.selectedCategory = category ?? viewModel.categories.first
-                                    viewModel.comment = transaction.comment
-                                    viewModel.amountString = transaction.amount
-                                    viewModel.date = transaction.transactionDate
-                                    viewModel.showTransactionView = true
-                                } label: {
-                                    TransactionListRow(transaction: transaction, category: category)
-                                }
-                            }
-                            .onDelete(perform: deleteTransaction)
-                        }
-                    }
                 }
-            }
-            .overlay(addButton, alignment: .bottomTrailing)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        MyHistoryView(direction: viewModel.direction)
-                    } label: {
-                        Image(systemName: "clock")
-                    }
-                }
+                
+                mainContent
             }
             .navigationTitle(viewModel.direction == .outcome ? "Расходы сегодня" : "Доходы сегодня")
+            .background(Color(.systemGroupedBackground))
+
         }
+        
+        .refreshable {
+            Task { await viewModel.loadData() }
+        }
+        
         .alert(item: $viewModel.alertState) { alertState in
             Alert(
                 title: Text(alertState.title),
@@ -99,6 +65,63 @@ struct TransactionsListView: View {
         }
         .task {
             await viewModel.loadData()
+        }
+
+    }
+
+    private var mainContent: some View {
+        Group {
+            if viewModel.isLoading && viewModel.transactions.isEmpty {
+                ProgressView()
+                    .font(.title3)
+                    .tint(.tint)
+            } else {
+                List {
+                    Section {
+                        Picker("Сортировка", selection: $viewModel.sortOption) {
+                            Text("По дате").tag(SortOption.byDate)
+                            Text("По сумме").tag(SortOption.byAmount)
+                        }
+                        .pickerStyle(.menu)
+                        
+                        HStack {
+                            Text("Всего")
+                            Spacer()
+                            Text("\(viewModel.totalAmount) \(Currency.RUB.rawValue)")
+                        }
+                        .font(.headline)
+                    }
+                    
+                    Section("ОПЕРАЦИИ") {
+                        ForEach(sortedTransactions) { transaction in
+                            let category = viewModel.categories.first { $0.id == transaction.categoryId } ?? Category(id: 0, name: "Other", emoji: "❓", isIncome: false)
+                            Button {
+                                viewModel.transaction = transaction
+                                viewModel.transactionScreenMode = .edit
+                                viewModel.selectedCategory = category ?? viewModel.categories.first
+                                viewModel.comment = transaction.comment
+                                viewModel.amountString = transaction.amount
+                                viewModel.date = transaction.transactionDate
+                                viewModel.showTransactionView = true
+                            } label: {
+                                TransactionListRow(transaction: transaction, category: category)
+                            }
+                        }
+                        .onDelete(perform: deleteTransaction)
+                    }
+                }
+                .overlay(addButton, alignment: .bottomTrailing)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink {
+                            MyHistoryView(direction: viewModel.direction)
+                        } label: {
+                            Image(systemName: "clock")
+                        }
+                    }
+                }
+                .navigationTitle(viewModel.direction == .outcome ? "Расходы сегодня" : "Доходы сегодня")
+            }
         }
     }
 

@@ -106,7 +106,9 @@ final class TransactionViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         do {
-            categories = try await categoriesService.categories()
+            let allCategories = try await categoriesService.categories()
+            categories = allCategories.unique(by: \.id)
+            
             let responses = try await transactionService.fetchTransactions(for: dateRange)
             let mappedTransactions = responses
                 .map { $0.toTransaction() }
@@ -134,14 +136,45 @@ final class TransactionViewModel: ObservableObject {
                 } else {
                     try await transactionService.createTransaction(transactionToSave)
                 }
-                resetForm()
-                showTransactionView = false
+                
+                if NetworkStatusMonitor.shared.isConnected {
+                    resetForm()
+                    showTransactionView = false
+                } else {
+                    alertState = AlertState(
+                        type: .info,
+                        title: "Сохранено в оффлайн",
+                        message: "Транзакция будет синхронизирована при восстановлении соединения"
+                    )
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        self.resetForm()
+                        self.showTransactionView = false
+                    }
+                }
+                
+                await loadData()
+            } catch {
+                if !error.isNetworkError {
+                    showErrorAlert(error)
+                }
+            }
+            isLoading = false
+        }
+    }
+    func createNewBankAccount() {
+        Task {
+            isLoading = true
+            do {
+                try await transactionService.createNewBankAccount()
             } catch {
                 showErrorAlert(error)
             }
             isLoading = false
         }
+
     }
+    
+
 
     private func createTransactionObject() throws -> Transaction {
         guard let selectedCategory = selectedCategory, let amount = Decimal(string: amountString) else {
@@ -165,13 +198,25 @@ final class TransactionViewModel: ObservableObject {
         isLoading = true
         do {
             try await transactionService.deleteTransaction(id: transaction.id)
+            
+            if !NetworkStatusMonitor.shared.isConnected {
+                alertState = AlertState(
+                    type: .info,
+                    title: "Удалено локально",
+                    message: "Транзакция будет удалена на сервере при восстановлении соединения"
+                )
+            }
+            
             resetForm()
+            await loadData()
         } catch {
-            self.error = error
+            if !error.isNetworkError {
+                self.error = error
+                showErrorAlert(error)
+            }
         }
         isLoading = false
     }
-
     private func resetForm() {
         transaction = nil
         selectedCategory = nil
@@ -223,3 +268,5 @@ enum ValidationError: LocalizedError {
         }
     }
 }
+
+

@@ -12,6 +12,8 @@ struct AlertState: Identifiable {
         case validation
         case deleteConfirmation
         case error
+        case info
+
     }
     
     let id = UUID()

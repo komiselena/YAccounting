@@ -2,58 +2,68 @@ import Foundation
 import SwiftData
 
 protocol TransactionStorageProtocol {
-//    func fetchAllTransactions() async throws -> [Transaction]
-//    func fetchTransactions(for period: ClosedRange<Date>) async throws -> [Transaction]
-//    func fetchTransaction(id: Int) async throws -> Transaction?
+    func fetchAllTransactions() async throws -> [Transaction]
+    func fetchTransactions(for period: ClosedRange<Date>) async throws -> [Transaction]
+    func fetchTransaction(id: Int) async throws -> Transaction?
     func createTransaction(_ transaction: Transaction) async throws
     func editTransaction(_ transaction: Transaction) async throws
     func deleteTransaction(id: Int) async throws
+    func fetchPendingDeletions() async throws -> [Int]
+    func clearDeletionMark(id: Int) async throws
 }
 
 @MainActor
 final class TransactionSwiftDataStorage: TransactionStorageProtocol {
-    private let modelContainer: ModelContainer
-    private let modelContext: ModelContext
+    let container: ModelContainer
+    let modelContext: ModelContext
 
     init() {
         do {
-            self.modelContainer = try ModelContainer(for: TransactionModel.self)
-            self.modelContext = ModelContext(modelContainer)
+            let config = ModelConfiguration("TransactionData", schema: Schema([TransactionModel.self]))
+            container = try ModelContainer(for: TransactionModel.self, configurations: config)
+            modelContext = ModelContext(container)
         } catch {
             fatalError("Failed to create ModelContainer for TransactionModel: \(error.localizedDescription)")
         }
     }
+    
+    func saveContext() throws {
+    try modelContext.save()
+    }
 
-//    func fetchAllTransactions() async throws -> [Transaction] {
-//        let descriptor = FetchDescriptor<TransactionModel>(sortBy: [SortDescriptor(\TransactionModel.transactionDate, order: .reverse)])
-//        let models = try modelContext.fetch(descriptor)
-//        return models.map { $0.toTransaction() }
-//    }
-//
-//    func fetchTransactions(for period: ClosedRange<Date>) async throws -> [Transaction] {
-//        let startDate = period.lowerBound
-//        let endDate = period.upperBound
-//        let predicate = #Predicate<TransactionModel> {
-//            $0.transactionDate >= startDate && $0.transactionDate <= endDate
-//        }
-//        let descriptor = FetchDescriptor<TransactionModel>(predicate: predicate, sortBy: [SortDescriptor(\TransactionModel.transactionDate, order: .reverse)])
-//        let models = try modelContext.fetch(descriptor)
-//        return models.map { $0.toTransaction() }
-//    }
-//
-//    func fetchTransaction(id: Int) async throws -> Transaction? {
-//        let predicate = #Predicate<TransactionModel> {
-//            $0.id == id
-//        }
-//        var descriptor = FetchDescriptor<TransactionModel>(predicate: predicate)
-//        descriptor.fetchLimit = 1
-//        let models = try modelContext.fetch(descriptor)
-//        return models.first?.toTransaction()
-//    }
+
+
+    func fetchAllTransactions() async throws -> [Transaction] {
+        let descriptor = FetchDescriptor<TransactionModel>(sortBy: [SortDescriptor(\.transactionDate, order: .reverse)])
+        let models = try modelContext.fetch(descriptor)
+        return models.map { $0.toTransaction() }
+    }
+
+    func fetchTransactions(for period: ClosedRange<Date>) async throws -> [Transaction] {
+        let startDate = period.lowerBound
+        let endDate = period.upperBound
+        let predicate = #Predicate<TransactionModel> {
+            $0.transactionDate >= startDate && $0.transactionDate <= endDate
+        }
+        let descriptor = FetchDescriptor<TransactionModel>(predicate: predicate, sortBy: [SortDescriptor(\TransactionModel.transactionDate, order: .reverse)])
+        let models = try modelContext.fetch(descriptor)
+        return models.map { $0.toTransaction() }
+    }
+
+    func fetchTransaction(id: Int) async throws -> Transaction? {
+        let predicate = #Predicate<TransactionModel> {
+            $0.id == id
+        }
+        var descriptor = FetchDescriptor<TransactionModel>(predicate: predicate)
+        descriptor.fetchLimit = 1
+        let models = try modelContext.fetch(descriptor)
+        return models.first?.toTransaction()
+    }
 
     func createTransaction(_ transaction: Transaction) async throws {
         let model = TransactionModel(from: transaction)
         modelContext.insert(model)
+        print("transaction is inserted to model \(transaction)")
         try modelContext.save()
     }
 
@@ -84,3 +94,25 @@ final class TransactionSwiftDataStorage: TransactionStorageProtocol {
 }
 
 
+extension TransactionSwiftDataStorage {
+    private var pendingDeletionsKey: String { "pendingDeletions" }
+    
+    func fetchPendingDeletions() async throws -> [Int] {
+        UserDefaults.standard.array(forKey: pendingDeletionsKey) as? [Int] ?? []
+    }
+    
+    func markTransactionForDeletion(id: Int) async throws {
+        var deletions = try await fetchPendingDeletions()
+        if !deletions.contains(id) {
+            deletions.append(id)
+            UserDefaults.standard.set(deletions, forKey: pendingDeletionsKey)
+        }
+        try await deleteTransaction(id: id)
+    }
+    
+    func clearDeletionMark(id: Int) async throws {
+        var deletions = try await fetchPendingDeletions()
+        deletions.removeAll { $0 == id }
+        UserDefaults.standard.set(deletions, forKey: pendingDeletionsKey)
+    }
+}

@@ -7,11 +7,13 @@
 
 import Foundation
 
-
+@MainActor
 final class CategoriesService: ObservableObject, CategoriesServiceProtocol {
     
     private let client: NetworkClient
-    
+    private let storage = CategorySwiftDataStorage()
+
+
     init(client: NetworkClient = NetworkClient()) {
         self.client = client
     }
@@ -27,10 +29,16 @@ final class CategoriesService: ObservableObject, CategoriesServiceProtocol {
     var categories: [Category] = []
     
     func categories() async throws -> [Category] {
-        categories = try await client.request(endpoint: "api/v1/categories", method: "GET")
-        return categories
+        do {
+            let fetched: [Category] = try await client.request(endpoint: "api/v1/categories", method: "GET")
+            try storage.saveCategories(fetched)
+            return fetched
+        } catch {
+            print("⚠️ Error loading categories from network, loading from cache: \(error)")
+            return try storage.fetchCategories()
+        }
     }
-        
+
     func fetchDirectionCategories(by direction: Direction) async throws -> [Category]{
         let allCategories = try await categories()
         return allCategories.filter { $0.direction == direction}

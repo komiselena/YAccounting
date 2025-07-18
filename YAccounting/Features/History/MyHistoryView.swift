@@ -103,7 +103,7 @@ struct MyHistoryView: View {
                     Text("Нет операций за выбранный период")
                 } else {
                     ForEach(sortedTransactions){ transaction in
-                        let category = viewModel.categories.first { $0.id == transaction.categoryId }
+                        let category = historyViewModel.categories.first(where: { $0.id == transaction.categoryId }) ?? Category(id: 0, name: "Other", emoji: "❓", isIncome: false)
                         Button {
                             viewModel.transaction = transaction
                             viewModel.transactionScreenMode = .edit
@@ -134,10 +134,6 @@ struct MyHistoryView: View {
                 }
             }
         }
-
-//        .refreshable {
-//            Task { await historyViewModel.loadData() }
-//        }
 
         .task {
             await historyViewModel.loadData()
