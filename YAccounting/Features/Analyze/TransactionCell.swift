@@ -119,7 +119,7 @@ class TransactionCell: UITableViewCell {
 
         let percent: Double
         if totalAmount != 0 {
-            let ratio = (transaction.amount / totalAmount) as NSDecimalNumber
+            let ratio = (Decimal(string: transaction.amount) ?? 0 / totalAmount) as NSDecimalNumber
             percent = ratio.doubleValue * 100
         } else {
             percent = 0
@@ -130,7 +130,7 @@ class TransactionCell: UITableViewCell {
         formatter.numberStyle = .decimal
         formatter.groupingSeparator = " "
         formatter.maximumFractionDigits = 2
-        let amountString = formatter.string(from: transaction.amount as NSDecimalNumber) ?? "\(transaction.amount)"
+        let amountString = "\(transaction.amount)"
         amountLabel.text = "\(amountString) ₽"
     }
 }

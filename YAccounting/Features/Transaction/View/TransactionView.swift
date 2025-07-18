@@ -18,18 +18,16 @@ struct TransactionView: View {
         locale.decimalSeparator ?? "."
     }
 
-    
     init(viewModel: TransactionViewModel) {
         self._viewModel = StateObject(wrappedValue: viewModel)
         self._balanceViewModel = StateObject(wrappedValue: BalanceViewModel())
     }
-    
+
     var body: some View {
         NavigationStack{
             if viewModel.isLoading {
                 ProgressView()
             } else {
-                
                 Form {
                     Section {
                         Picker("Статья", selection: $viewModel.selectedCategory) {
@@ -38,7 +36,7 @@ struct TransactionView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
-                        
+
                         HStack {
                             Text("Сумма")
                             Spacer()
@@ -51,9 +49,8 @@ struct TransactionView: View {
                                 }
                             Text("\(balanceViewModel.currentCurrency.rawValue)")
                                 .foregroundStyle(.secondary)
-
                         }
-                        
+
                         DatePicker("Дата", selection: $viewModel.date, in: ...Date.now, displayedComponents: .date)
                                                 .accentColor(.accentColor)
 //                                                .labelsHidden()
@@ -65,19 +62,22 @@ struct TransactionView: View {
 //                                                .datePickerStyle(.colored(backgroundColor: .operationImageBG))
                         
                         ZStack(alignment: .leading) {
-                            if viewModel.comment.isEmpty {
+                            if (viewModel.comment ?? "").isEmpty {
                                 Text("Комментарий")
                                     .foregroundColor(.secondary)
                             }
-                            TextField("", text: $viewModel.comment)
-                                .foregroundColor(.primary)
+                            TextField("", text: Binding(
+                                get: { viewModel.comment ?? "" },
+                                set: { viewModel.comment = $0.isEmpty ? nil : $0 }
+                            ))
+                            .foregroundColor(.primary)
                         }
                     }
                     
                     if viewModel.transactionScreenMode == .edit {
                         Section {
                             Button(role: .destructive) {
-                                viewModel.showDeleteConfirmation = true
+                                viewModel.showDeleteAlert()
                             } label: {
                                 HStack {
                                     Text("Удалить \(viewModel.direction == .income ? "доход" : "расход")")
@@ -92,8 +92,6 @@ struct TransactionView: View {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Отмена") {
                             dismiss()
-                            viewModel.amountString = ""
-                            viewModel.comment = ""
                         }
                     }
                     
@@ -106,36 +104,46 @@ struct TransactionView: View {
                 .tint(.tint)
             }
         }
-        .alert("Заполните все поля", isPresented: $viewModel.showValidationAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Пожалуйста, выберите категорию, укажите сумму и заполните все обязательные поля")
-        }
-        .alert("Удалить операцию?", isPresented: $viewModel.showDeleteConfirmation) {
-            Button("Удалить", role: .destructive) {
-                Task {
-                    await viewModel.deleteTransaction()
-                }
+        .alert(item: $viewModel.alertState) { alertState in
+            switch alertState.type {
+            case .validation:
+                return Alert(
+                    title: Text(alertState.title),
+                    message: Text(alertState.message),
+                    dismissButton: .default(Text("OK"))
+                )
+            case .deleteConfirmation:
+                return Alert(
+                    title: Text(alertState.title),
+                    message: Text(alertState.message),
+                    primaryButton: .destructive(Text("Удалить")) {
+                        Task {
+                            await viewModel.deleteTransaction()
+                        }
+                    },
+                    secondaryButton: .cancel()
+                )
+            case .error:
+                return Alert(
+                    title: Text(alertState.title),
+                    message: Text(alertState.message),
+                    dismissButton: .default(Text("OK")) {
+                        viewModel.alertState = nil
+                    }
+                )
+            case .info:
+                return Alert(
+                    title: Text(alertState.title),
+                    message: Text(alertState.message),
+                    dismissButton: .default(Text("OK")) {
+                        viewModel.alertState = nil
+                    }
+                )
+
             }
-            Button("Отмена", role: .cancel) {}
-        }
-        .alert("Ошибка", isPresented: .constant(viewModel.error != nil)) {
-            Button("OK") { viewModel.error = nil }
-        } message: {
-            Text(viewModel.error?.localizedDescription ?? "Неизвестная ошибка")
         }
         .task {
-            await viewModel.loadInitialData()
             await balanceViewModel.loadBankAccountData()
         }
-
     }
-    
-}
-
-#Preview {
-    TransactionView(
-        viewModel: TransactionViewModel(direction: .income)
-        
-    )
 }

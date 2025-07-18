@@ -125,7 +125,7 @@ struct BalanceEditView: View {
                             Task { await balanceEditvm.submitBalance() }
                         }
                 } else {
-                    Text(balanceViewModel.bankAccount?.balance.formatted() ?? "0")
+                    Text(balanceViewModel.bankAccount?.balance ?? "0")
                         .foregroundStyle(.secondary)
                 }
                 

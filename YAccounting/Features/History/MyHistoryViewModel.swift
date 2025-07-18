@@ -10,9 +10,10 @@ import Foundation
 @MainActor
 final class MyHistoryViewModel: ObservableObject {
     
-    private let transactionService = TransactionService()
-    private let categoriesService = CategoriesService()
-    
+    private let transactionService: TransactionService
+    private let categoriesService: CategoriesService
+    private let accountsService: BankAccountsService
+
     let direction: Direction
 
     @Published var transactions: [Transaction] = []
@@ -30,28 +31,51 @@ final class MyHistoryViewModel: ObservableObject {
     }
 
     var totalAmount: Decimal {
-        transactions.reduce(0) { $0 + $1.amount }
+        transactions.reduce(Decimal.zero) { result, transaction in
+            if let decimalAmount = Decimal(string: transaction.amount) {
+                return result + decimalAmount
+            } else {
+                return result
+            }
+        }
     }
-    
+
     @Published var error: Error?
 
     @Published var sortOption: SortOption = .byDate
     
     
-    init(direction: Direction){
+    init(
+        direction: Direction,
+        categoriesService: CategoriesService,
+        accountsService: BankAccountsService
+    ) {
         self.direction = direction
+        self.categoriesService = categoriesService
+        self.accountsService = accountsService
         
+        self.transactionService = TransactionService(
+            accountsService: accountsService,
+            categoriesService: categoriesService 
+        )
     }
 
     func loadData() async {
         isLoading = true
         do {
             categories = try await categoriesService.categories()
-            let allTransactions = try await transactionService.fetchTransactions(for: dateRange)
-            transactions = allTransactions.filter { transaction in
-                guard let category = categories.first(where: { $0.id == transaction.categoryId }) else { return false }
-                return category.direction == direction
-            }
+            let responses = try await transactionService.fetchTransactions(for: dateRange)
+
+            let mappedTransactions = responses
+                .map { $0.toTransaction() }
+                .filter { transaction in
+                    guard let category = categories.first(where: { $0.id == transaction.categoryId }) else {
+                        return false
+                    }
+                    return category.direction == direction
+                }
+
+            transactions = mappedTransactions
         } catch {
             self.error = error
         }
@@ -59,3 +83,5 @@ final class MyHistoryViewModel: ObservableObject {
     }
 
 }
+
+

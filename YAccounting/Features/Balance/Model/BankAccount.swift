@@ -12,9 +12,9 @@ struct BankAccount: Codable {
     let id: Int
     var userId: Int
     var name: String
-    var balance: Decimal
+    var balance: String
     var currency: String
-    var createdAt: Date
-    var updatedAt: Date
+    var createdAt: Date?
+    var updatedAt: Date?
     
 }

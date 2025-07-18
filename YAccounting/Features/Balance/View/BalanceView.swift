@@ -56,7 +56,7 @@ struct BalanceView: View {
                         }
                 } else {
                     
-                    Text("\(balanceViewModel.bankAccount?.balance.formatted() ?? "0") \(balanceViewModel.currentCurrency.rawValue)")
+                    Text("\(balanceViewModel.bankAccount?.balance ?? "0") \(balanceViewModel.currentCurrency.rawValue)")
                 }
             }
             .padding(.horizontal)

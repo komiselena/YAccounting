@@ -10,7 +10,7 @@ import Foundation
 
 protocol TransactionServiceProtocol {
     
-    func fetchTransactions(for period: ClosedRange<Date>) async throws -> [Transaction]
+    func fetchTransactions(for period: ClosedRange<Date>) async throws -> [TransactionResponse]
     func createTransaction(_ transaction: Transaction) async throws
     func editTransaction(_ transaction: Transaction) async throws
     func deleteTransaction(_ transaction: Transaction) async throws

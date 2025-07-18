@@ -363,7 +363,15 @@ class AnalysisViewController: UIViewController {
     }
     
     private func updateTotalAmount() {
-        let totalAmount = transactions.reduce(Decimal(0)) { $0 + $1.amount }
+        var totalAmount: Decimal {
+            transactions.reduce(Decimal.zero) { result, transaction in
+                if let decimalAmount = Decimal(string: transaction.amount) {
+                    return result + decimalAmount
+                } else {
+                    return result
+                }
+            }
+        }
         amountLabel.text = "\(formatAmount(totalAmount)) ₽"
     }
     
@@ -394,7 +402,17 @@ extension AnalysisViewController: UITableViewDataSource, UITableViewDelegate {
         let cell = tableView.dequeueReusableCell(withIdentifier: "TransactionCell", for: indexPath) as! TransactionCell
         let transaction = transactions[indexPath.row]
         let category = categories.first { $0.id == transaction.categoryId }
-        cell.configure(with: transaction, category: category, totalAmount: transactions.reduce(0) { $0 + $1.amount })
+        var totalAmount: Decimal {
+            transactions.reduce(Decimal.zero) { result, transaction in
+                if let decimalAmount = Decimal(string: transaction.amount) {
+                    return result + decimalAmount
+                } else {
+                    return result
+                }
+            }
+        }
+
+        cell.configure(with: transaction, category: category, totalAmount: totalAmount)
         
         if indexPath.row == transactions.count - 1 {
             cell.separatorInset = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: .greatestFiniteMagnitude)

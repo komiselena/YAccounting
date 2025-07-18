@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct MainTabView: View {
+    private let categoriesService = CategoriesService()
+    private let accountsService = BankAccountsService()
+
     var body: some View {
             TabView{
                 Group{
@@ -86,9 +89,10 @@ struct MainTabView: View {
 
             }
             .accentColor(.accent)
-
     }
+
 }
+
 
 #Preview {
     MainTabView()
