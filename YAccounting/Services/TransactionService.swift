@@ -11,7 +11,11 @@ import SwiftData
 @MainActor
 final class TransactionService: ObservableObject, @unchecked Sendable {
     private let client: NetworkClient
-    private let storage: TransactionStorageProtocol
+    private var storage: TransactionStorageProtocol {
+        StorageSettings.shared.currentStorage == .coreData
+            ? TransactionCoreDataStorage()
+            : TransactionSwiftDataStorage()
+    }
     private let backupStorage: TransactionStorageProtocol
     private let accountsService: BankAccountsServiceProtocol
     private let categoriesService: CategoriesServiceProtocol
@@ -29,10 +33,8 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         self.categoriesService = categoriesService
 
         if let storage = storage, let backupStorage = backupStorage {
-            self.storage = storage
             self.backupStorage = backupStorage
         } else {
-            self.storage = TransactionSwiftDataStorage()
             self.backupStorage = TransactionSwiftDataStorage()
         }
     }
