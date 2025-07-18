@@ -10,9 +10,14 @@ import Foundation
 
 final class NetworkClient {
     private let token = "jvprf2feIMHUbXfDCYR7FjTJ"
+    private let urlSession: URLSession
+    private let urlString = "https://shmr-finance.ru/"
     
-    let urlString = "https://shmr-finance.ru/"
-    
+    init() {
+        let config = URLSessionConfiguration.default
+        self.urlSession = URLSession(configuration: config)
+    }
+
     private var decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { decoder in
@@ -46,6 +51,8 @@ final class NetworkClient {
 
     
     func request<T: Decodable>(endpoint: String, method: String = "GET", body: Data? = nil) async throws -> T {
+        try Task.checkCancellation()
+
         let fullURL = urlString + endpoint
         guard let url = URL(string: fullURL) else {
             print("❌ Invalid URL: \(fullURL)")
@@ -56,6 +63,7 @@ final class NetworkClient {
         request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
+        // Set accept header based on method
         if method == "DELETE" {
             request.setValue("*/*", forHTTPHeaderField: "accept")
         } else {
@@ -74,7 +82,7 @@ final class NetworkClient {
         
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            
+
             guard let httpResponse = response as? HTTPURLResponse else {
                 print("❌ No HTTP Response")
                 throw NetworkError.noResponse

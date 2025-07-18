@@ -8,7 +8,7 @@
 import Foundation
 
 
-final class CategoriesService: ObservableObject {
+final class CategoriesService: ObservableObject, CategoriesServiceProtocol {
     
     private let client: NetworkClient
     

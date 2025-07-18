@@ -18,18 +18,16 @@ struct TransactionView: View {
         locale.decimalSeparator ?? "."
     }
 
-    
     init(viewModel: TransactionViewModel) {
         self._viewModel = StateObject(wrappedValue: viewModel)
         self._balanceViewModel = StateObject(wrappedValue: BalanceViewModel())
     }
-    
+
     var body: some View {
         NavigationStack{
             if viewModel.isLoading {
                 ProgressView()
             } else {
-                
                 Form {
                     Section {
                         Picker("Статья", selection: $viewModel.selectedCategory) {
@@ -38,7 +36,7 @@ struct TransactionView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
-                        
+
                         HStack {
                             Text("Сумма")
                             Spacer()
@@ -51,9 +49,8 @@ struct TransactionView: View {
                                 }
                             Text("\(balanceViewModel.currentCurrency.rawValue)")
                                 .foregroundStyle(.secondary)
-
                         }
-                        
+
                         DatePicker("Дата", selection: $viewModel.date, in: ...Date.now, displayedComponents: .date)
                                                 .accentColor(.accentColor)
 //                                                .labelsHidden()
@@ -122,8 +119,6 @@ struct TransactionView: View {
                     primaryButton: .destructive(Text("Удалить")) {
                         Task {
                             await viewModel.deleteTransaction()
-                            dismiss()
-
                         }
                     },
                     secondaryButton: .cancel()
@@ -139,17 +134,7 @@ struct TransactionView: View {
             }
         }
         .task {
-            await viewModel.loadData()
             await balanceViewModel.loadBankAccountData()
         }
-
     }
-    
-}
-
-#Preview {
-    TransactionView(
-        viewModel: TransactionViewModel(direction: .income)
-        
-    )
 }

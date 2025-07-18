@@ -14,7 +14,7 @@ extension Transaction {
             "categoryId": self.categoryId,
             "amount": self.amount,
             "transactionDate": ISO8601DateFormatter().string(from: self.transactionDate),
-            "comment": self.comment,
+            "comment": self.comment as Any,
             "createdAt": ISO8601DateFormatter().string(from: self.createdAt ?? Date.now),
             "updatedAt": ISO8601DateFormatter().string(from: self.updatedAt ?? Date.now)
 
@@ -48,12 +48,28 @@ extension Transaction {
             id: id,
             accountId: accountId,
             categoryId: categoryId,
-            amount: amount,
+            amount: String(describing: amount),
             transactionDate: transactionDate,
             comment: comment,
             createdAt: createdAt,
             updatedAt: updatedAt
         )
+    }
+
+    
+    
+    func toTransactionResponse(account: Account, category: Category) -> TransactionResponse {
+        TransactionResponse(
+            id: id,
+            account: account,
+            category: category,
+            amount: decimalAmount,
+            transactionDate: transactionDate,
+            comment: comment,
+            createdAt: createdAt ?? Date(),
+            updatedAt: updatedAt ?? Date()
+        )
+        
     }
 
 }

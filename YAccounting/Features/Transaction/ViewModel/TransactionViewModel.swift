@@ -6,30 +6,33 @@
 //
 
 import Foundation
+import Combine
 
 @MainActor
 final class TransactionViewModel: ObservableObject {
-    
-    private let transactionService = TransactionService()
-    private let categoriesService = CategoriesService()
-    
-    @Published var showErrorAlert = false
-    @Published var errorMessage: String?
-    
+    private let transactionService: TransactionService
+    private let categoriesService: CategoriesService
+    private let accountsService: BankAccountsService
+    private var cancellables = Set<AnyCancellable>()
+
     let direction: Direction
     var transaction: Transaction?
-    
-    @Published var transactionScreenMode: TransactionMode?
 
+    @Published var transactionScreenMode: TransactionMode?
     @Published var transactions: [Transaction] = []
     @Published var categories: [Category] = []
     @Published var isLoading = false
-    
     @Published var showTransactionView = false
-
     @Published var startDate = Calendar.current.date(byAdding: .month, value: -1, to: Date())!
     @Published var endDate = Date()
-    
+    @Published var error: Error?
+    @Published var sortOption: SortOption = .byDate
+    @Published var selectedCategory: Category?
+    @Published var amountString: String = ""
+    @Published var date: Date = Date.now
+    @Published var comment: String?
+    @Published var alertState: AlertState?
+
     private var dateRange: ClosedRange<Date> {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: startDate)
@@ -38,20 +41,8 @@ final class TransactionViewModel: ObservableObject {
     }
 
     var totalAmount: Decimal {
-        transactions.reduce(0) { $0 + $1.amount }
+        transactions.reduce(Decimal.zero) { $0 + ($1.decimalAmount) }
     }
-    
-    @Published var error: Error?
-
-    @Published var sortOption: SortOption = .byDate
-    
-    @Published var selectedCategory: Category?
-    @Published var amountString: String = ""
-    @Published var date: Date = Date.now
-    @Published var comment: String?
-    @Published var showDeleteConfirmation = false
-    
-    private var loadDataTask: Task<Void, Never>?
 
     private var isFormValid: Bool {
         selectedCategory != nil && !amountString.isEmpty && Decimal(string: amountString) != nil
@@ -64,8 +55,6 @@ final class TransactionViewModel: ObservableObject {
         formatter.numberStyle = .decimal
         return formatter
     }()
-    
-    @Published var alertState: AlertState?
     
 
     func validateAmount(_ input: String) -> String {
@@ -85,82 +74,68 @@ final class TransactionViewModel: ObservableObject {
     }
 
 
-    init(direction: Direction, transaction: Transaction? = nil) {
+    init(
+        direction: Direction,
+        transaction: Transaction? = nil,
+        categoriesService: CategoriesService,
+        accountsService: BankAccountsService
+    ) {
         self.direction = direction
         self.transaction = transaction
+        self.categoriesService = categoriesService
+        self.accountsService = accountsService
+        self.transactionService = TransactionService(
+            accountsService: accountsService,
+            categoriesService: categoriesService
+        )
+        subscribeToUpdates()
     }
-    
-    deinit {
-        loadDataTask?.cancel()
-    }
 
-
-    func loadData() async {
-        loadDataTask?.cancel()
-
-        isLoading = true
-        defer { isLoading = false }
-
-        loadDataTask = Task {
-            do {
-                categories = try await categoriesService.categories()
-                let responses = try await transactionService.fetchTransactions(for: dateRange)
-                
-                if !Task.isCancelled {
-                    let mappedTransactions = responses
-                        .map { $0.toTransaction() }
-                        .filter { transaction in
-                            guard let category = categories.first(where: { $0.id == transaction.categoryId }) else {
-                                return false
-                            }
-                            return category.direction == direction
-                        }
-                    
-                    transactions = mappedTransactions
-                }
-            } catch {
-                if !Task.isCancelled {
-                    self.error = error
+    private func subscribeToUpdates() {
+        NotificationCenter.default.publisher(for: .transactionsUpdated)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                Task {
+                    await self?.loadData()
                 }
             }
-            isLoading = false
+            .store(in: &cancellables)
+    }
+
+    func loadData() async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            categories = try await categoriesService.categories()
+            let responses = try await transactionService.fetchTransactions(for: dateRange)
+            let mappedTransactions = responses
+                .map { $0.toTransaction() }
+                .filter { transaction in
+                    guard let category = categories.first(where: { $0.id == transaction.categoryId }) else { return false }
+                    return category.direction == direction
+                }
+            self.transactions = mappedTransactions
+        } catch {
+            self.error = error
         }
     }
-    
+
     func saveTransaction() {
         guard isFormValid else {
             showValidationAlert()
             return
         }
-        
         Task {
             isLoading = true
             do {
-                let transaction = try createTransactionObject()
-                
+                let transactionToSave = try createTransactionObject()
                 if transactionScreenMode == .edit {
-                    guard let origiTransaction = self.transaction else {
-                        throw ValidationError.invalidData
-                    }
-                    
-                    let updatedTransaction = Transaction(
-                        id: origiTransaction.id,
-                        accountId: transaction.accountId,
-                        categoryId: transaction.categoryId,
-                        amount: transaction.amount,
-                        transactionDate: transaction.transactionDate,
-                        comment: transaction.comment,
-                        createdAt: origiTransaction.createdAt,
-                        updatedAt: origiTransaction.updatedAt
-                    )
-                    
-                    try await transactionService.editTransaction(updatedTransaction)
+                    try await transactionService.editTransaction(transactionToSave)
                 } else {
-                    try await transactionService.createTransaction(transaction)
+                    try await transactionService.createTransaction(transactionToSave)
                 }
-                
-                await loadData()
                 resetForm()
+                showTransactionView = false
             } catch {
                 showErrorAlert(error)
             }
@@ -169,20 +144,19 @@ final class TransactionViewModel: ObservableObject {
     }
 
     private func createTransactionObject() throws -> Transaction {
-        guard let selectedCategory = selectedCategory,
-              let amount = Decimal(string: amountString) else {
+        guard let selectedCategory = selectedCategory, let amount = Decimal(string: amountString) else {
             throw ValidationError.invalidData
         }
-        
+        let newId = transaction?.id ?? (transactions.max(by: { $0.id < $1.id })?.id ?? 0) + 1
         return Transaction(
-            id: transaction?.id ?? 1,
-            accountId: 1,
+            id: newId,
+            accountId: 1, // Placeholder
             categoryId: selectedCategory.id,
-            amount: amount,
+            amount: String(describing: amount),
             transactionDate: date,
             comment: comment,
-            createdAt: transaction?.createdAt,
-            updatedAt: transaction?.updatedAt
+            createdAt: transaction?.createdAt ?? Date(),
+            updatedAt: Date()
         )
     }
 
@@ -190,16 +164,17 @@ final class TransactionViewModel: ObservableObject {
         guard let transaction = transaction else { return }
         isLoading = true
         do {
-            try await transactionService.deleteTransaction(transaction)
-            await loadData()
+            try await transactionService.deleteTransaction(id: transaction.id)
+            resetForm()
         } catch {
             self.error = error
         }
-        resetForm()
         isLoading = false
     }
-    
+
     private func resetForm() {
+        transaction = nil
+        selectedCategory = nil
         amountString = ""
         comment = ""
         date = Date.now
@@ -213,23 +188,15 @@ final class TransactionViewModel: ObservableObject {
             message: "Вы уверены, что хотите удалить этот \(direction == .income ? "доход" : "расход")?"
         )
     }
-    
+
     private func showErrorAlert(_ error: Error) {
-        let message: String
-        
-        if let networkError = error as? NetworkError {
-            message = networkError.localizedDescription
-        } else {
-            message = "Пожалуйста, попробуйте снова"
-        }
-        
         alertState = AlertState(
             type: .error,
             title: "Ошибка",
-            message: message
+            message: error.localizedDescription
         )
     }
-    
+
     func showValidationAlert() {
         alertState = AlertState(
             type: .validation,
@@ -238,18 +205,21 @@ final class TransactionViewModel: ObservableObject {
         )
     }
 
-
+    func prepareForNewTransaction() {
+        transaction = nil
+        transactionScreenMode = .creation
+        selectedCategory = nil
+        comment = nil
+        amountString = ""
+        showTransactionView = true
+    }
 }
-
 
 enum ValidationError: LocalizedError {
     case invalidData
-    
     var errorDescription: String? {
         switch self {
         case .invalidData: return "Invalid transaction data"
         }
     }
 }
-
-

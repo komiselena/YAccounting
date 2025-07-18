@@ -42,5 +42,5 @@ struct TransactionListRow: View {
 }
 
 #Preview {
-    TransactionListRow(transaction: Transaction(id: 1, accountId: 1, categoryId: 1, amount: 1111, transactionDate: Date.now, comment: "", createdAt: Date.now, updatedAt: Date.now), category: Category(id: 1, name: "", emoji: "✅", isIncome: true))
+    TransactionListRow(transaction: Transaction(id: 1, accountId: 1, categoryId: 1, amount: "1111", transactionDate: Date.now, comment: "", createdAt: Date.now, updatedAt: Date.now), category: Category(id: 1, name: "", emoji: "✅", isIncome: true))
 }

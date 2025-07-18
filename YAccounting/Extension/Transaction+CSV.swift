@@ -37,7 +37,7 @@ extension Transaction {
             }
             let comment = columns[5]
             
-            transactions.append(Transaction(id: id, accountId: accountId, categoryId: categoryId, amount: amount, transactionDate: date, comment: comment, createdAt: createdAt, updatedAt: updatedAt))
+            transactions.append(Transaction(id: id, accountId: accountId, categoryId: categoryId, amount: String(describing: amount), transactionDate: date, comment: comment, createdAt: createdAt, updatedAt: updatedAt))
             
         }
         

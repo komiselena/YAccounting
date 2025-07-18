@@ -6,135 +6,190 @@
 //
 
 import Foundation
+import SwiftData
 
-final class TransactionService: ObservableObject, TransactionServiceProtocol, @unchecked Sendable {
-    
+@MainActor
+final class TransactionService: ObservableObject, @unchecked Sendable {
     private let client: NetworkClient
-    
-    init(client: NetworkClient = NetworkClient()) {
+    private let storage: TransactionStorageProtocol
+    private let backupStorage: TransactionStorageProtocol
+    private let accountsService: BankAccountsServiceProtocol
+    private let categoriesService: CategoriesServiceProtocol
+
+    init(
+        client: NetworkClient = NetworkClient(),
+        storage: TransactionStorageProtocol? = nil,
+        backupStorage: TransactionStorageProtocol? = nil,
+        accountsService: BankAccountsServiceProtocol,
+        categoriesService: CategoriesServiceProtocol
+    ) {
         self.client = client
+        self.accountsService = accountsService
+        self.categoriesService = categoriesService
+
+        if let storage = storage, let backupStorage = backupStorage {
+            self.storage = storage
+            self.backupStorage = backupStorage
+        } else {
+            self.storage = TransactionSwiftDataStorage()
+            self.backupStorage = TransactionSwiftDataStorage()
+        }
     }
 
-    private var encoder: JSONEncoder = {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .custom { date, encoder in
-            var container = encoder.singleValueContainer()
-            let dateFormatter = ISO8601DateFormatter()
-            dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            let dateString = dateFormatter.string(from: date)
-            try container.encode(dateString)
-        }
-        return encoder
-    }()
-
-    
-
-    private var mockTransactions: [Transaction] = [
-        Transaction(
-            id: 1,
-            accountId: 1,
-            categoryId: 1,
-            amount: Decimal(50000.00),
-            transactionDate: Date(),
-            comment: "Зарплата за месяц",
-            createdAt: Date(),
-            updatedAt: Date()
-        ),
-        Transaction(
-            id: 2,
-            accountId: 1,
-            categoryId: 1,
-            amount: Decimal(1000.00),
-            transactionDate: Date(),
-            comment: "Доходы за месяц",
-            createdAt: Date(),
-            updatedAt: Date()
-        ),
-        Transaction(
-            id: 3,
-            accountId: 1,
-            categoryId: 2,
-            amount: Decimal(100.00),
-            transactionDate: Date(),
-            comment: "Аренда",
-            createdAt: Date(),
-            updatedAt: Date()
-        ),
-        Transaction(
-            id: 4,
-            accountId: 1,
-            categoryId: 3,
-            amount: Decimal(1500.00),
-            transactionDate: Date(),
-            comment: "Еда",
-            createdAt: Date(),
-            updatedAt: Date()
-        ),
-
-    ]
-
-    var transactions: [TransactionResponse] = []
-    
     func fetchTransactions(for period: ClosedRange<Date>) async throws -> [TransactionResponse] {
-        let endpoint = "api/v1/transactions/account/1/period?startDate=\(period.lowerBound.formatPeriod())&endDate=\(period.upperBound.formatPeriod())"
-        return try await client.request(endpoint: endpoint)
-    }
+//        try await syncBackupTransactions()
 
-    func createTransaction(_ transaction: Transaction) async throws {
-        let endpoint = "api/v1/transactions"
-        let body = try encoder.encode(transaction)
-        print("Request body: \(String(data: body, encoding: .utf8) ?? "")")
-        let _: EmptyResponse = try await client.request(
-            endpoint: endpoint,
-            method: "POST",
-            body: body
-        )
-        NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
-    }
+        let bankAccount = try await accountsService.fetchBankAccount()
 
-    func editTransaction(_ transaction: Transaction) async throws {
-        let endpoint = "api/v1/transactions/\(transaction.id)"
-        
         do {
-            let _: TransactionResponse = try await client.request(
-                endpoint: "api/v1/transactions/\(transaction.id)",
-                method: "GET"
-            )
+            let endpoint = "api/v1/transactions/account/\(bankAccount.id)/period?startDate=\(period.lowerBound.formatPeriod())&endDate=\(period.upperBound.formatPeriod())"
+            let serverResponses = try await client.request(endpoint: endpoint) as [TransactionResponse]
+            for serverResponse in serverResponses.prefix(50) {
+                try await deleteTransaction(id: serverResponse.toTransaction().id)
+                print("delete transaction: \(serverResponse)")
+            }
+//            try await saveNewTransactions(serverResponses)
+            return serverResponses
         } catch {
-            throw NetworkError.customError(message: "Transaction not found")
+//            let localTransactions = try await storage.fetchTransactions(for: period)
+//            let backupTransactions = try await backupStorage.fetchTransactions(for: period)
+//            let allTransactions = Array(Set(localTransactions + backupTransactions))
+
+//            return try await allTransactions.concurrentMap { transaction in
+//                let account = try await self.accountsService.fetchBankAccount()
+//                let category = try await self.categoriesService.categories().first(where: { $0.id == transaction.categoryId })
+//                return transaction.toTransactionResponse(account: Account(id: account.id, name: account.name, balance: account.balance, currency: account.currency), category: category ?? Category(id: 0, name: "Uncategorized", emoji: "🔎", isIncome: false))
+//            }
+            
+            throw NetworkError.decodingError(error)
         }
-        
-        let requestBody: [String: Any] = [
-            "accountId": transaction.accountId,
-            "categoryId": transaction.categoryId,
-            "amount": NSDecimalNumber(decimal: transaction.amount).stringValue,
-            "transactionDate": ISO8601DateFormatter().string(from: transaction.transactionDate),
-            "comment": transaction.comment ?? ""
-        ]
-        
-        
-        let body = try JSONSerialization.data(withJSONObject: requestBody)
-        let _: EmptyResponse = try await client.request(
-            endpoint: endpoint,
-            method: "PUT",
-            body: body
-        )
-        NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
     }
-    
-    func deleteTransaction(_ transaction: Transaction) async throws {
-        let endpoint = "api/v1/transactions/\(transaction.id)"
-        let _: EmptyResponse = try await client.request(
-            endpoint: endpoint,
-            method: "DELETE"
-        )
-        NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
+
+//    private func syncBackupTransactions() async throws {
+//        let unsyncedTransactions = try await backupStorage.fetchAllTransactions()
+//
+//        for transaction in unsyncedTransactions {
+//            do {
+//                try await syncTransaction(transaction)
+//                try await backupStorage.deleteTransaction(id: transaction.id)
+//            } catch {
+//                print("Failed to sync transaction \(transaction.id): \(error)")
+//            }
+//        }
+//    }
+
+//    private func syncTransaction(_ transaction: Transaction) async throws {
+//        if try await storage.fetchTransaction(id: transaction.id) != nil {
+//            try await editTransaction(transaction, isSync: true)
+//        } else {
+//            try await createTransaction(transaction, isSync: true)
+//        }
+//    }
+//
+//    private func saveNewTransactions(_ transactions: [TransactionResponse]) async throws {
+//        for transactionResponse in transactions {
+//            let transaction = transactionResponse.toTransaction()
+//            if try await storage.fetchTransaction(id: transaction.id) == nil {
+////                try await storage.createTransaction(transaction)
+//            }
+//        }
+//    }
+
+    func createTransaction(_ transaction: Transaction, isSync: Bool = false) async throws {
+        let bankAccount = try await accountsService.fetchBankAccount()
+
+        do {
+            let endpoint = "api/v1/transactions"
+            let requestBody: [String: Any] = [
+                "accountId": bankAccount.id,
+                "categoryId": transaction.categoryId,
+                "amount": transaction.amount,
+                "transactionDate": ISO8601DateFormatter().string(from: transaction.transactionDate),
+                "comment": transaction.comment ?? ""
+            ]
+            let body = try JSONSerialization.data(withJSONObject: requestBody)
+            let response: Transaction = try await client.request(endpoint: endpoint, method: "POST", body: body)
+            try await storage.createTransaction(response)
+            try? await backupStorage.deleteTransaction(id: transaction.id)
+//            if !isSync {
+//                NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
+//            }
+        } catch {
+            try await backupStorage.createTransaction(transaction)
+            throw error
+        }
+    }
+
+    func editTransaction(_ transaction: Transaction, isSync: Bool = false) async throws {
+        let bankAccount = try await accountsService.fetchBankAccount()
+
+        do {
+            let endpoint = "api/v1/transactions/\(transaction.id)"
+            let requestBody: [String: Any] = [
+                "accountId": bankAccount.id,
+                "categoryId": transaction.categoryId,
+                "amount": transaction.amount,
+                "transactionDate": ISO8601DateFormatter().string(from: transaction.transactionDate),
+                "comment": transaction.comment ?? ""
+            ]
+            let body = try JSONSerialization.data(withJSONObject: requestBody)
+            let _: EmptyResponse = try await client.request(endpoint: endpoint, method: "PUT", body: body)
+            try await storage.editTransaction(transaction)
+            try? await backupStorage.deleteTransaction(id: transaction.id)
+//            if !isSync {
+//                NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
+//            }
+        } catch {
+            try await backupStorage.editTransaction(transaction)
+            throw error
+        }
+    }
+
+    func deleteTransaction(id: Int) async throws {
+        do {
+            let endpoint = "api/v1/transactions/\(id)"
+            let _: EmptyResponse = try await client.request(endpoint: endpoint, method: "DELETE")
+            try await storage.deleteTransaction(id: id)
+            try? await backupStorage.deleteTransaction(id: id)
+            NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
+        } catch {
+            throw error
+        }
     }
 }
-
 
 extension Notification.Name {
     static let transactionsUpdated = Notification.Name("transactionsUpdated")
 }
 
 struct EmptyResponse: Decodable {}
+
+extension Sequence {
+    func unique<T: Hashable>(by keyPath: KeyPath<Element, T>) -> [Element] {
+        var seen = Set<T>()
+        return filter { seen.insert($0[keyPath: keyPath]).inserted }
+    }
+}
+
+extension Array {
+    func concurrentMap<T>(_ transform: @escaping (Element) async throws -> T) async rethrows -> [T] {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            for element in self {
+                group.addTask {
+                    try await transform(element)
+                }
+            }
+            return try await group.reduce(into: []) { $0.append($1) }
+        }
+    }
+}
+
+extension Transaction: Hashable {
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    static func == (lhs: Transaction, rhs: Transaction) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+

@@ -8,13 +8,17 @@
 import SwiftUI
 
 struct TransactionsListView: View {
-    
     @Environment(\.modelContext) var modelContext
-    
     @StateObject private var viewModel: TransactionViewModel
-    
+
     init(direction: Direction) {
-        _viewModel = StateObject(wrappedValue: TransactionViewModel(direction: direction))
+        let categoriesService = CategoriesService()
+        let accountsService = BankAccountsService()
+        _viewModel = StateObject(wrappedValue: TransactionViewModel(
+            direction: direction,
+            categoriesService: categoriesService,
+            accountsService: accountsService
+        ))
     }
 
     private var sortedTransactions: [Transaction] {
@@ -22,91 +26,65 @@ struct TransactionsListView: View {
         case .byDate:
             return viewModel.transactions.sorted(by: { $0.transactionDate > $1.transactionDate })
         case .byAmount:
-            return viewModel.transactions.sorted(by: { $0.amount > $1.amount })
+            return viewModel.transactions.sorted(by: { $0.decimalAmount > $1.decimalAmount })
         }
     }
-    
+
     var body: some View {
-        NavigationStack{
-            VStack{
-                if viewModel.isLoading {
+        NavigationStack {
+            Group {
+                if viewModel.isLoading && viewModel.transactions.isEmpty {
                     ProgressView()
+                        .font(.title3)
                         .tint(.tint)
-                }else{
-                    List{
+                } else {
+                    List {
                         Section {
                             Picker("Сортировка", selection: $viewModel.sortOption) {
                                 Text("По дате").tag(SortOption.byDate)
                                 Text("По сумме").tag(SortOption.byAmount)
                             }
                             .pickerStyle(.menu)
-                            
-                            HStack{
+
+                            HStack {
                                 Text("Всего")
-                                    .foregroundStyle(.black)
-                                    .font(.headline)
-                                
                                 Spacer()
                                 Text("\(viewModel.totalAmount) \(Currency.RUB.rawValue)")
-                                    .foregroundStyle(.black)
-                                    .font(.headline)
-                                
                             }
+                            .font(.headline)
                         }
-                        
+
                         Section("ОПЕРАЦИИ") {
-                            ForEach(sortedTransactions){ transaction in
+                            ForEach(sortedTransactions) { transaction in
                                 let category = viewModel.categories.first { $0.id == transaction.categoryId }
                                 Button {
                                     viewModel.transaction = transaction
                                     viewModel.transactionScreenMode = .edit
-                                    print(transaction)
-                                    viewModel.selectedCategory = viewModel.categories.first(where: {$0.id == transaction.categoryId } ) ??  viewModel.categories.first
+                                    viewModel.selectedCategory = category ?? viewModel.categories.first
                                     viewModel.comment = transaction.comment
-                                    viewModel.amountString = String(describing: transaction.amount)
+                                    viewModel.amountString = transaction.amount
+                                    viewModel.date = transaction.transactionDate
                                     viewModel.showTransactionView = true
                                 } label: {
                                     TransactionListRow(transaction: transaction, category: category)
-
                                 }
-
                             }
+                            .onDelete(perform: deleteTransaction)
                         }
                     }
                 }
             }
-            .overlay(
-                Button{
-                    viewModel.transaction = nil
-                    viewModel.transactionScreenMode = .creation
-                    viewModel.showTransactionView = true
-                } label : {
-                    Image(systemName: "plus")
-                        .font(.title)
-                        .foregroundStyle(.white)
-                        .padding()
-                        .background(
-                            Circle()
-                                .fill(.accent)
-                        )
-                }
-                    .padding(.bottom, 30)
-                    .padding(.trailing, 16)
-
-                ,alignment: .bottomTrailing
-            )
-            .toolbar(content: {
+            .overlay(addButton, alignment: .bottomTrailing)
+            .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
-                        MyHistoryView(direction: viewModel.direction, viewModel: viewModel)
+                        MyHistoryView(direction: viewModel.direction)
                     } label: {
                         Image(systemName: "clock")
                     }
-                    
                 }
-            })
+            }
             .navigationTitle(viewModel.direction == .outcome ? "Расходы сегодня" : "Доходы сегодня")
-            
         }
         .alert(item: $viewModel.alertState) { alertState in
             Alert(
@@ -115,16 +93,36 @@ struct TransactionsListView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
-
         .tint(Color("tintColor"))
-        .task {
-            await viewModel.loadData()
-        }
         .fullScreenCover(isPresented: $viewModel.showTransactionView) {
             TransactionView(viewModel: viewModel)
         }
+        .task {
+            await viewModel.loadData()
+        }
     }
 
+    private var addButton: some View {
+        Button {
+            viewModel.prepareForNewTransaction()
+        } label: {
+            Image(systemName: "plus")
+                .font(.title)
+                .foregroundStyle(.white)
+                .padding()
+                .background(Circle().fill(.accent))
+        }
+        .padding(.bottom, 30)
+        .padding(.trailing, 16)
+    }
+
+    private func deleteTransaction(at offsets: IndexSet) {
+        offsets.forEach { index in
+            Task {
+                await viewModel.deleteTransaction()
+            }
+        }
+    }
 }
 
 #Preview {

@@ -7,11 +7,13 @@
 
 import Foundation
 
-protocol TransactionProtocol {
-    
-    func fetchTransactions(for period: ClosedRange<Date>) async throws -> [TransactionResponse]
-    func createTransaction(id: Int) async throws
-    func editTransaction(id: Int) async throws
-    func deleteTransaction(id: Int) async throws
-    
-}
+//protocol TransactionStorageProtocol {
+//    
+//    func fetchAllTransactions() async throws -> [Transaction]
+//    func fetchTransactions(for period: ClosedRange<Date>) async throws -> [Transaction]
+//    func fetchTransaction(id: Int) async throws -> Transaction?
+//    func createTransaction(_ transaction: Transaction) async throws
+//    func editTransaction(_ transaction: Transaction) async throws
+//    func deleteTransaction(id: Int) async throws
+//    
+//}

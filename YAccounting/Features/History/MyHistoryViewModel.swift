@@ -10,9 +10,10 @@ import Foundation
 @MainActor
 final class MyHistoryViewModel: ObservableObject {
     
-    private let transactionService = TransactionService()
-    private let categoriesService = CategoriesService()
-    
+    private let transactionService: TransactionService
+    private let categoriesService: CategoriesService
+    private let accountsService: BankAccountsService
+
     let direction: Direction
 
     @Published var transactions: [Transaction] = []
@@ -30,7 +31,13 @@ final class MyHistoryViewModel: ObservableObject {
     }
 
     var totalAmount: Decimal {
-        transactions.reduce(0) { $0 + $1.amount }
+        transactions.reduce(Decimal.zero) { result, transaction in
+            if let decimalAmount = Decimal(string: transaction.amount) {
+                return result + decimalAmount
+            } else {
+                return result
+            }
+        }
     }
 
     @Published var error: Error?
@@ -38,9 +45,19 @@ final class MyHistoryViewModel: ObservableObject {
     @Published var sortOption: SortOption = .byDate
     
     
-    init(direction: Direction){
+    init(
+        direction: Direction,
+        categoriesService: CategoriesService,
+        accountsService: BankAccountsService
+    ) {
         self.direction = direction
+        self.categoriesService = categoriesService
+        self.accountsService = accountsService
         
+        self.transactionService = TransactionService(
+            accountsService: accountsService,
+            categoriesService: categoriesService 
+        )
     }
 
     func loadData() async {
@@ -66,3 +83,5 @@ final class MyHistoryViewModel: ObservableObject {
     }
 
 }
+
+

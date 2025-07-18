@@ -56,7 +56,7 @@ extension TransactionResponse{
             id: id,
             accountId: account.id,
             categoryId: category.id,
-            amount: amount,
+            amount: String(describing: amount),
             transactionDate: transactionDate,
             comment: comment,
             createdAt: createdAt,

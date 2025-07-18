@@ -19,6 +19,17 @@ struct TransactionResponse: Codable {
     enum CodingKeys: String, CodingKey {
         case id, account, category, amount, transactionDate, comment, createdAt, updatedAt
     }
+    
+    init(id: Int, account: Account, category: Category, amount: Decimal, transactionDate: Date, comment: String? = "", createdAt: Date? = Date.now, updatedAt: Date? = Date.now) {
+        self.id = id
+        self.account = account
+        self.category = category
+        self.amount = amount
+        self.transactionDate = transactionDate
+        self.comment = comment
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -54,3 +65,5 @@ struct Account: Codable{
 
 
 }
+
+
