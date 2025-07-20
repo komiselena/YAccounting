@@ -11,16 +11,35 @@ import Foundation
 final class BalanceViewModel: ObservableObject {
     private let bankAccountService = BankAccountsService()
     @Published var bankAccount: BankAccount?
+    @Published var isLoading = false
+    @Published var error: Error?
 
     @Published var currentCurrency: Currency = .RUB
 
     @Published var balanceScreenState: BalanceState = .view
+    
+    
+    init() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleTransactionsUpdate),
+            name: .transactionsUpdated,
+            object: nil
+        )
+    }
+    
+    @objc private func handleTransactionsUpdate() {
+        Task { await loadBankAccountData() }
+    }
 
     func loadBankAccountData() async {
+        isLoading = true
+        defer { isLoading = false }
+
         do {
             bankAccount = try await bankAccountService.fetchBankAccount()
         }catch{
-            print("Error loading bank account data: \(error)")
+            self.error = error
         }
     }
     
@@ -36,7 +55,7 @@ final class BalanceViewModel: ObservableObject {
     
     func updateBalance(_ newBalance: Decimal) async {
         guard var account = bankAccount else { return }
-        account.balance = newBalance
+        account.balance = String(describing: newBalance)
         do{
             try await bankAccountService.changeBankAccount(account)
             bankAccount = account

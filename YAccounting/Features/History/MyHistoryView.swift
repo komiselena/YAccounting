@@ -22,11 +22,29 @@ struct MyHistoryView: View {
         }
     }
     
-    init(direction: Direction, viewModel: TransactionViewModel) {
-        self._viewModel = StateObject(wrappedValue: viewModel)
-        _historyViewModel = StateObject(wrappedValue: MyHistoryViewModel(direction: direction))
+    
+    init(direction: Direction) {
+        let categoriesService = CategoriesService()
+        let accountsService = BankAccountsService()
+        let historyViewModel = MyHistoryViewModel(
+            direction: direction,
+            categoriesService: categoriesService,
+            accountsService: accountsService
+        )
+
+        let viewModel = TransactionViewModel(
+            direction: .income,
+            categoriesService: categoriesService,
+            accountsService: accountsService
+        )
+
+        _viewModel = StateObject(wrappedValue: viewModel)
+        _historyViewModel = StateObject(wrappedValue: historyViewModel)
         self.direction = direction
+
+
     }
+
 
     
     var body: some View {
@@ -45,7 +63,7 @@ struct MyHistoryView: View {
                         if newValue > historyViewModel.endDate {
                             historyViewModel.endDate = newValue
                         }
-                        Task { await historyViewModel.loadData() }
+//                        Task { await historyViewModel.loadData() }
                     }
                     
                     DatePicker(
@@ -59,7 +77,7 @@ struct MyHistoryView: View {
                         if newValue < historyViewModel.startDate {
                             historyViewModel.startDate = newValue
                         }
-                        Task { await historyViewModel.loadData() }
+//                        Task { await historyViewModel.loadData() }
                     }
                     
                     Picker("Сортировка", selection: $historyViewModel.sortOption) {
@@ -84,16 +102,20 @@ struct MyHistoryView: View {
                 } else if historyViewModel.transactions.isEmpty {
                     Text("Нет операций за выбранный период")
                 } else {
-                    ForEach(sortedTransactions) { transaction in
-                        let category = historyViewModel.categories.first { $0.id == transaction.categoryId }
+                    ForEach(sortedTransactions){ transaction in
+                        let category = historyViewModel.categories.first(where: { $0.id == transaction.categoryId }) ?? Category(id: 0, name: "Other", emoji: "❓", isIncome: false)
                         Button {
-                            viewModel.transactionScreenMode = .edit
                             viewModel.transaction = transaction
+                            viewModel.transactionScreenMode = .edit
+                            viewModel.selectedCategory = viewModel.categories.first(where: {$0.id == transaction.categoryId } ) ??  viewModel.categories.first
+                            viewModel.comment = transaction.comment
+                            viewModel.amountString = String(describing: transaction.amount)
                             viewModel.showTransactionView = true
                         } label: {
                             TransactionListRow(transaction: transaction, category: category)
 
                         }
+
                     }
                 }
 
@@ -113,10 +135,6 @@ struct MyHistoryView: View {
             }
         }
 
-        .refreshable {
-            Task { await historyViewModel.loadData() }
-        }
-
         .task {
             await historyViewModel.loadData()
         }
@@ -124,9 +142,9 @@ struct MyHistoryView: View {
     }
     
 }
-
-#Preview {
-    MyHistoryView(direction: .outcome, viewModel: TransactionViewModel(direction: .outcome))
-}
+//
+//#Preview {
+//    MyHistoryView(direction: .outcome, viewModel: TransactionViewModel(direction: .outcome))
+//}
 
 

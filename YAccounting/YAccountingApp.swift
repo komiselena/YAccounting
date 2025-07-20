@@ -10,23 +10,21 @@ import SwiftData
 
 @main
 struct YAccountingApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+    @Environment(\.scenePhase) private var scenePhase
+            
+        var body: some Scene {
+            WindowGroup {
+                MainTabView()
+            }
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .background || newPhase == .inactive {
+                Task {
+                    let storage = TransactionSwiftDataStorage()
+                    try? storage.saveContext()
+                }
+            }
         }
-    }()
-
-    var body: some Scene {
-        WindowGroup {
-            MainTabView()
-        }
-        .modelContainer(sharedModelContainer)
+        
+        
     }
 }
