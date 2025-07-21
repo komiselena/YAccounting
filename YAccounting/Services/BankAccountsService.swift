@@ -35,7 +35,7 @@ final class BankAccountsService: BankAccountsServiceProtocol {
     func fetchBankAccount() async throws -> BankAccount {
         do {
             let bankAccounts: [BankAccount] = try await client.request(endpoint: "api/v1/accounts", method: "GET")
-            let selectedAccount = bankAccounts.first(where: { $0.id == 374 }) ?? mockBankAccount
+            let selectedAccount = bankAccounts.first ?? mockBankAccount
             bankAccount = selectedAccount
             
             try storage.save(bankAccount: selectedAccount)

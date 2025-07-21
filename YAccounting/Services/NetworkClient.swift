@@ -55,7 +55,6 @@ final class NetworkClient {
 
         let fullURL = urlString + endpoint
         guard let url = URL(string: fullURL) else {
-            print("❌ Invalid URL: \(fullURL)")
             throw NetworkError.invalidURL
         }
         
@@ -76,59 +75,39 @@ final class NetworkClient {
             print("📤 Request Body: \(String(data: body, encoding: .utf8) ?? "Unable to decode body")")
         }
         
-        print("🚀 Sending \(method) request to: \(url.absoluteString)")
-        print("🔑 Authorization: Bearer \(token)")
-        print("📝 Headers: \(request.allHTTPHeaderFields ?? [:])")
-        
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
-                print("❌ No HTTP Response")
                 throw NetworkError.noResponse
             }
             
-            print("🔵 Response Status Code: \(httpResponse.statusCode)")
-            print("📥 Response Data: \(String(data: data, encoding: .utf8) ?? "Unable to decode response")")
-            
             switch httpResponse.statusCode {
-            case 200...299:
-                print("✅ Request successful")
+            case 200...299: break
             case 401:
-                print("❌ Unauthorized")
                 throw NetworkError.unauthorized
             case 404:
-                print("❌ Not Found")
                 throw NetworkError.notFound
             case 400:
-                print("❌ Bad Request")
                 let errorMessage = String(data: data, encoding: .utf8) ?? "Bad Request"
                 throw NetworkError.customError(message: errorMessage)
             case 500...599:
-                print("❌ Server Error")
                 throw NetworkError.serverError
             default:
-                print("❌ Unexpected Status Code: \(httpResponse.statusCode)")
                 throw NetworkError.unexpectedStatusCode(httpResponse.statusCode)
             }
 
-            // Handle empty responses for DELETE requests
             if T.self == EmptyResponse.self && data.isEmpty {
-                print("ℹ️ Empty response received - returning empty response object")
                 return EmptyResponse() as! T
             }
 
             do {
                 let decoded = try decoder.decode(T.self, from: data)
-                print("📦 Successfully decoded response to \(T.self)")
                 return decoded
             } catch {
-                print("❌ Decoding Error: \(error)")
-                print("📦 Failed to decode: \(String(data: data, encoding: .utf8) ?? "Unable to decode error data")")
                 throw NetworkError.decodingError(error)
             }
         } catch {
-            print("❌ Network Request Failed: \(error)")
             throw error
         }
     }
