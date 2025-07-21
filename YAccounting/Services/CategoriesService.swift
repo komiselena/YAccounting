@@ -34,7 +34,6 @@ final class CategoriesService: ObservableObject, CategoriesServiceProtocol {
             try storage.saveCategories(fetched)
             return fetched
         } catch {
-            print("⚠️ Error loading categories from network, loading from cache: \(error)")
             return try storage.fetchCategories()
         }
     }
