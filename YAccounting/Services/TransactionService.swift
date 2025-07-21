@@ -41,8 +41,6 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
 
     func fetchTransactions(for period: ClosedRange<Date>) async throws -> [TransactionResponse] {
         if !NetworkStatusMonitor.shared.isConnected {
-            print("⚠️ Offline mode activated")
-            print("📦 Загружаем транзакции из локального хранилища (offline)")
 
             let localTransactions = try await storage.fetchTransactions(for: period)
             return try await localTransactions.concurrentMap { transaction in
@@ -85,7 +83,6 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         let unsyncedTransactions = try await backupStorage.fetchAllTransactions()
         let deletions = try await backupStorage.fetchPendingDeletions() 
         
-        print("🔁 Синхронизируем изменения: \(unsyncedTransactions.count) новых, \(deletions.count) на удаление")
 
         for transaction in unsyncedTransactions {
             do {
