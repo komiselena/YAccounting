@@ -91,12 +91,12 @@ struct MainTabView: View {
                 
             }
             .accentColor(.accent)
-            if showLaunchAnimation {
-                LaunchLottieView(showLaunchAnimation: $showLaunchAnimation)
-                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-                    .zIndex(2)
-                    .transition(.opacity)
-            }
+//            if showLaunchAnimation {
+//                LaunchLottieView(showLaunchAnimation: $showLaunchAnimation)
+//                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+//                    .zIndex(2)
+//                    .transition(.opacity)
+//            }
         }
         
     }
