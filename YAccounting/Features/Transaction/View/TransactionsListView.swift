@@ -26,6 +26,7 @@ struct TransactionsListView: View {
         switch viewModel.sortOption {
         case .byDate:
             return viewModel.transactions.sorted(by: { $0.transactionDate > $1.transactionDate })
+                
         case .byAmount:
             return viewModel.transactions.sorted(by: { $0.decimalAmount > $1.decimalAmount })
         }
@@ -93,12 +94,15 @@ struct TransactionsListView: View {
                     }
                     
                     Section("ОПЕРАЦИИ") {
-                        ForEach(sortedTransactions) { transaction in
+                        ForEach(sortedTransactions.filter {
+                            Calendar.current.startOfDay(for: Date.now) <= $0.transactionDate && viewModel.endDate >= $0.transactionDate
+                        }) { transaction in
+
                             let category = viewModel.categories.first { $0.id == transaction.categoryId } ?? Category(id: 0, name: "Other", emoji: "❓", isIncome: false)
                             Button {
                                 viewModel.transaction = transaction
                                 viewModel.transactionScreenMode = .edit
-                                viewModel.selectedCategory = category ?? viewModel.categories.first
+                                viewModel.selectedCategory = category
                                 viewModel.comment = transaction.comment
                                 viewModel.amountString = transaction.amount
                                 viewModel.date = transaction.transactionDate

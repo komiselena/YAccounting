@@ -10,8 +10,10 @@ import SwiftUI
 struct MainTabView: View {
     private let categoriesService = CategoriesService()
     private let accountsService = BankAccountsService()
+    @State private var showLaunchAnimation = true
 
     var body: some View {
+        ZStack{
             TabView{
                 Group{
                     TransactionsListView(direction: .outcome)
@@ -85,12 +87,19 @@ struct MainTabView: View {
                 }
                 .toolbarBackground(.visible, for: .tabBar)
                 .toolbarBackground(Color.white, for: .tabBar)
-
-
+                
+                
             }
             .accentColor(.accent)
+            if showLaunchAnimation {
+                LaunchLottieView(showLaunchAnimation: $showLaunchAnimation)
+                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                    .zIndex(2)
+                    .transition(.opacity)
+            }
+        }
+        
     }
-
 }
 
 
