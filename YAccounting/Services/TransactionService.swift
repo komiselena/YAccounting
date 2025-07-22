@@ -13,14 +13,14 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
     private let client: NetworkClient
     private var storage: TransactionStorageProtocol {
         StorageSettings.shared.currentStorage == .coreData
-            ? TransactionCoreDataStorage()
-            : TransactionSwiftDataStorage()
+        ? TransactionCoreDataStorage()
+        : TransactionSwiftDataStorage()
     }
     private let backupStorage: TransactionStorageProtocol
     private let accountsService: BankAccountsServiceProtocol
     private let categoriesService: CategoriesServiceProtocol
     @Published var isOfflineMode: Bool = false
-
+    
     init(
         client: NetworkClient = NetworkClient(),
         storage: TransactionStorageProtocol? = nil,
@@ -31,17 +31,17 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         self.client = client
         self.accountsService = accountsService
         self.categoriesService = categoriesService
-
+        
         if let storage = storage, let backupStorage = backupStorage {
             self.backupStorage = backupStorage
         } else {
             self.backupStorage = TransactionSwiftDataStorage()
         }
     }
-
+    
     func fetchTransactions(for period: ClosedRange<Date>) async throws -> [TransactionResponse] {
         if !NetworkStatusMonitor.shared.isConnected {
-
+            
             let localTransactions = try await storage.fetchTransactions(for: period)
             return try await localTransactions.concurrentMap { transaction in
                 let account = try await self.accountsService.fetchBankAccount()
@@ -52,11 +52,11 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
                 )
             }
         }
-
+        
         try await syncBackupTransactions()
-
+        
         let bankAccount = try await accountsService.fetchBankAccount()
-
+        
         do {
             let endpoint = "api/v1/transactions/account/\(bankAccount.id)/period?startDate=\(period.lowerBound.formatPeriod())&endDate=\(period.upperBound.formatPeriod())"
             let serverResponses = try await client.request(endpoint: endpoint) as [TransactionResponse]
@@ -67,7 +67,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let backupTransactions = try await backupStorage.fetchTransactions(for: period)
             let combined = (localTransactions + backupTransactions)
             let uniqueTransactions = combined.unique(by: \.id)
-
+            
             return try await uniqueTransactions.concurrentMap { transaction in
                 let account = try await self.accountsService.fetchBankAccount()
                 let category = try await self.categoriesService.categories().first(where: { $0.id == transaction.categoryId })
@@ -78,12 +78,12 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             }
         }
     }
-
+    
     private func syncBackupTransactions() async throws {
         let unsyncedTransactions = try await backupStorage.fetchAllTransactions()
         let deletions = try await backupStorage.fetchPendingDeletions() 
         
-
+        
         for transaction in unsyncedTransactions {
             do {
                 try await syncTransaction(transaction)
@@ -103,15 +103,15 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             }
         }
     }
-
+    
     private func syncTransaction(_ transaction: Transaction) async throws {
         if try await storage.fetchTransaction(id: transaction.id) != nil {
             try await editTransaction(transaction, isSync: true)
         } else {
-//            try await createTransaction(transaction, isSync: true)
+            //            try await createTransaction(transaction, isSync: true)
         }
     }
-
+    
     private func saveNewTransactions(_ transactions: [TransactionResponse]) async throws {
         for transactionResponse in transactions {
             let transaction = transactionResponse.toTransaction()
@@ -120,10 +120,10 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             }
         }
     }
-
+    
     func createTransaction(_ transaction: Transaction, isSync: Bool = false) async throws {
         let bankAccount = try await accountsService.fetchBankAccount()
-
+        
         do {
             if !NetworkStatusMonitor.shared.isConnected {
                 try await backupStorage.createTransaction(transaction)
@@ -140,6 +140,12 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             ]
             let body = try JSONSerialization.data(withJSONObject: requestBody)
             let response: Transaction = try await client.request(endpoint: endpoint, method: "POST", body: body)
+            
+            // Обновляем баланс
+            if let category = try? await categoriesService.categories().first(where: { $0.id == transaction.categoryId }) {
+                try await accountsService.updateBalance(with: response, category: category)
+            }
+            
             try await storage.createTransaction(response)
             try? await backupStorage.deleteTransaction(id: transaction.id)
             if !isSync {
@@ -164,12 +170,19 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         let body = try JSONSerialization.data(withJSONObject: requestBody)
         let response: BankAccount = try await client.request(endpoint: endpoint, method: "POST", body: body)
         print(response)
-
+        
     }
 
     func editTransaction(_ transaction: Transaction, isSync: Bool = false) async throws {
+        // Получаем старую транзакцию для отмены ее влияния на баланс
+        if let oldTransaction = try? await storage.fetchTransaction(id: transaction.id),
+           let oldCategory = try? await categoriesService.categories().first(where: { $0.id == oldTransaction.categoryId }) {
+            try await accountsService.reverseBalance(with: oldTransaction, category: oldCategory)
+        }
+        
+        // Обновляем транзакцию
         let bankAccount = try await accountsService.fetchBankAccount()
-
+        
         do {
             let endpoint = "api/v1/transactions/\(transaction.id)"
             let requestBody: [String: Any] = [
@@ -181,6 +194,12 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             ]
             let body = try JSONSerialization.data(withJSONObject: requestBody)
             let _: EmptyResponse = try await client.request(endpoint: endpoint, method: "PUT", body: body)
+            
+            // Обновляем баланс с учетом новой транзакции
+            if let category = try? await categoriesService.categories().first(where: { $0.id == transaction.categoryId }) {
+                try await accountsService.updateBalance(with: transaction, category: category)
+            }
+            
             try await storage.editTransaction(transaction)
             try? await backupStorage.deleteTransaction(id: transaction.id)
             if !isSync {
@@ -193,6 +212,12 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
     }
 
     func deleteTransaction(id: Int) async throws {
+        // Получаем транзакцию для отмены ее влияния на баланс
+        if let transaction = try? await storage.fetchTransaction(id: id),
+           let category = try? await categoriesService.categories().first(where: { $0.id == transaction.categoryId }) {
+            try await accountsService.reverseBalance(with: transaction, category: category)
+        }
+        
         do {
             if !NetworkStatusMonitor.shared.isConnected {
                 try await storage.deleteTransaction(id: id)
@@ -212,8 +237,8 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
                 throw error
             }
         }
-    }}
-
+    }
+}
 extension Notification.Name {
     static let transactionsUpdated = Notification.Name("transactionsUpdated")
 }

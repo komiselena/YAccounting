@@ -35,10 +35,13 @@ final class BalanceViewModel: ObservableObject {
     func loadBankAccountData() async {
         isLoading = true
         defer { isLoading = false }
-
+        
         do {
             bankAccount = try await bankAccountService.fetchBankAccount()
-        }catch{
+            if let currencyString = bankAccount?.currency {
+                currentCurrency = Currency(rawValue: currencyString) ?? .RUB
+            }
+        } catch {
             self.error = error
         }
     }
@@ -54,16 +57,20 @@ final class BalanceViewModel: ObservableObject {
 
     
     func updateBalance(_ newBalance: Decimal) async {
-        guard var account = bankAccount else { return }
-        account.balance = String(describing: newBalance)
-        do{
-            try await bankAccountService.changeBankAccount(account)
-            bankAccount = account
-        }catch{
+        guard let account = bankAccount else { return }
+        do {
+            try await bankAccountService.updateBankAccount(
+                name: account.name,
+                balance: newBalance,
+                currency: account.currency
+            )
+            await loadBankAccountData()
+        } catch {
             print("Error updating balance: \(error)")
+            self.error = error
         }
     }
-    
+
     func updateCurrency(_ newCurrency: String) async {
         guard var account = bankAccount else { return }
         account.currency = newCurrency

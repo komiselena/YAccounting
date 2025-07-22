@@ -83,7 +83,7 @@ final class NetworkClient {
             }
             
             switch httpResponse.statusCode {
-            case 200...299:
+            case 200...299: break
             case 401:
                 throw NetworkError.unauthorized
             case 404:

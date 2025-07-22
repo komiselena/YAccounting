@@ -41,7 +41,8 @@ final class TransactionViewModel: ObservableObject {
     }
 
     var totalAmount: Decimal {
-        transactions.reduce(Decimal.zero) { $0 + ($1.decimalAmount) }
+        transactions.filter {
+            Calendar.current.startOfDay(for: Date.now) <= $0.transactionDate && endDate >= $0.transactionDate }.reduce(Decimal.zero) { $0 + ($1.decimalAmount) }
     }
 
     private var isFormValid: Bool {
