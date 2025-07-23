@@ -9,14 +9,12 @@ import SwiftUI
 
 struct BalanceEditView: View {
     @ObservedObject var balanceViewModel: BalanceViewModel
-    // ИСПРАВЛЕНО: Изменено на @StateObject для правильного управления состоянием
     @StateObject private var balanceEditvm: BalanceEditViewModel
     @State private var showPopup = false
     @FocusState private var isBalanceFieldFocused: Bool
     
     init(balanceViewModel: BalanceViewModel) {
         self.balanceViewModel = balanceViewModel
-        // ИСПРАВЛЕНО: Правильная инициализация @StateObject
         self._balanceEditvm = StateObject(wrappedValue: BalanceEditViewModel(balanceViewModel: balanceViewModel))
     }
 
@@ -50,7 +48,6 @@ struct BalanceEditView: View {
                 await balanceEditvm.submitBalance()
             }
         }
-        // ДОБАВЛЕНО: Инициализация при появлении представления
         .onAppear {
             if !balanceEditvm.editBalance {
                 balanceEditvm.startEditingBalance()
@@ -133,7 +130,6 @@ struct BalanceEditView: View {
                             Task { await balanceEditvm.submitBalance() }
                         }
                 } else {
-                    // ИСПРАВЛЕНО: Используем форматтер для отображения Decimal
                     let balanceValue = balanceViewModel.bankAccount?.balance ?? 0
                     Text("\(formatBalance(balanceValue))")
                         .foregroundStyle(balanceValue < 0 ? Color.red : Color.secondary)
@@ -152,7 +148,6 @@ struct BalanceEditView: View {
         }
     }
     
-    // ДОБАВЛЕНО: Метод форматирования баланса
     private func formatBalance(_ balance: Decimal) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal

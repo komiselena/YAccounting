@@ -89,7 +89,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
     
 
     private func recalculateAccountBalance() async throws {
-        let bankAccount = try await accountsService.fetchBankAccount(forceReload: true) // Force reload to get latest from server
+        let bankAccount = try await accountsService.fetchBankAccount(forceReload: true) 
         
 
         let allTransactions = try await storage.fetchAllTransactions()
@@ -144,7 +144,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
     }
     
     func createTransaction(_ transaction: Transaction, isSync: Bool = false) async throws {
-        let bankAccount = try await accountsService.fetchBankAccount(forceReload: false)
+        var bankAccount = try await accountsService.fetchBankAccount(forceReload: false)
         
         do {
             if !NetworkStatusMonitor.shared.isConnected {
@@ -153,23 +153,31 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             }
             
             let endpoint = "api/v1/transactions"
+            let amountDecimal = Decimal(string: transaction.amount) ?? 0
+            let categories = try await categoriesService.categories()
+            let cat = categories.first(where: { $0.id == transaction.categoryId })
+            if ((cat?.isIncome) != nil) {
+                bankAccount.balance += amountDecimal
+            } else {
+                bankAccount.balance -= amountDecimal
+            }
+            let signedAmount = cat?.isIncome == true ? amountDecimal.magnitude : -amountDecimal.magnitude
             let requestBody: [String: Any] = [
                 "accountId": bankAccount.id,
                 "categoryId": transaction.categoryId,
-                "amount": transaction.amount,
+                "amount": NSDecimalNumber(decimal: signedAmount).stringValue,
                 "transactionDate": ISO8601DateFormatter().string(from: transaction.transactionDate),
                 "comment": transaction.comment ?? ""
             ]
             let body = try JSONSerialization.data(withJSONObject: requestBody)
             let response: Transaction = try await client.request(endpoint: endpoint, method: "POST", body: body)
             
-            // Баланс рассчитывает сервер. После успешного создания просто перезагружаем счёт с сервера.
             _ = try? await accountsService.fetchBankAccount(forceReload: true)
             
             try await storage.createTransaction(response)
             try? await backupStorage.deleteTransaction(id: transaction.id)
             if !isSync {
-                NotificationCenter.default.post(name: .transactionsUpdated, object: nil) // Пересчет баланса убран, чтобы исключить двойное обновление
+                NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
             }
         } catch {
             if error.isNetworkError {
@@ -200,10 +208,14 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         
         do {
             let endpoint = "api/v1/transactions/\(transaction.id)"
+            let amountDec2 = Decimal(string: transaction.amount) ?? 0
+            let categories2 = try await categoriesService.categories()
+            let cat2 = categories2.first(where: { $0.id == transaction.categoryId })
+            let signedAmount2 = cat2?.isIncome == true ? amountDec2.magnitude : -amountDec2.magnitude
             let requestBody: [String: Any] = [
                 "accountId": bankAccount.id,
                 "categoryId": transaction.categoryId,
-                "amount": transaction.amount,
+                "amount": NSDecimalNumber(decimal: signedAmount2).stringValue,
                 "transactionDate": ISO8601DateFormatter().string(from: transaction.transactionDate),
                 "comment": transaction.comment ?? ""
             ]

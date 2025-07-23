@@ -11,18 +11,16 @@ import SwiftData
 @MainActor
 final class BankAccountsService: BankAccountsServiceProtocol {
     
-    // Глобальный экземпляр, которым должны пользоваться все экраны/сервисы.
     static let shared: BankAccountsService = BankAccountsService()
     
     private let client: NetworkClient
     private let storage = BankAccountSwiftDataStorage()
     
-    // Используем @Published для реактивного обновления UI
     @Published var bankAccount: BankAccount?
     
     init(
         client: NetworkClient = NetworkClient(),
-        initialBankAccount: BankAccount? = nil // Добавлен для инициализации
+        initialBankAccount: BankAccount? = nil
     ) {
         self.client = client
         self.bankAccount = initialBankAccount
