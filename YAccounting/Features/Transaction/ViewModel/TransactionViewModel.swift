@@ -188,7 +188,7 @@ final class TransactionViewModel: ObservableObject {
         let newId = transaction?.id ?? (transactions.max(by: { $0.id < $1.id })?.id ?? 0) + 1
         return Transaction(
             id: newId,
-            accountId: 1, // Placeholder
+            accountId: 1,
             categoryId: selectedCategory.id,
             amount: String(describing: amount),
             transactionDate: date,
@@ -197,7 +197,6 @@ final class TransactionViewModel: ObservableObject {
             updatedAt: Date()
         )
     }
-
     func deleteTransaction() async {
         guard let transaction = transaction else { return }
         isProcessingOperation = true

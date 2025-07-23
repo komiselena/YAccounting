@@ -17,7 +17,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         : TransactionSwiftDataStorage()
     }
     private let backupStorage: TransactionStorageProtocol
-    private let accountsService: BankAccountsServiceProtocol
+    private var accountsService: BankAccountsServiceProtocol
     private let categoriesService: CategoriesServiceProtocol
     @Published var isOfflineMode: Bool = false
     
@@ -99,7 +99,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         let categories = try await categoriesService.categories()
         
 
-        try await accountsService.recalculateBalance(transactions: accountTransactions, categories: categories)
+//        try await accountsService.recalculateBalance(transactions: accountTransactions, categories: categories)
     }
     
     private func syncBackupTransactions() async throws {
@@ -144,7 +144,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
     }
     
     func createTransaction(_ transaction: Transaction, isSync: Bool = false) async throws {
-        var bankAccount = try await accountsService.fetchBankAccount(forceReload: false)
+        let bankAccount = try await accountsService.fetchBankAccount(forceReload: false)
         
         do {
             if !NetworkStatusMonitor.shared.isConnected {
@@ -156,16 +156,19 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let amountDecimal = Decimal(string: transaction.amount) ?? 0
             let categories = try await categoriesService.categories()
             let cat = categories.first(where: { $0.id == transaction.categoryId })
-            if ((cat?.isIncome) != nil) {
-                bankAccount.balance += amountDecimal
-            } else {
-                bankAccount.balance -= amountDecimal
+            // Исправлено: для расходов сумма должна быть отрицательной
+            let signedAmount = cat?.isIncome == true ? amountDecimal : -amountDecimal
+            let delta = signedAmount
+
+            if var account = accountsService.bankAccount {
+                account.balance += delta
+                accountsService.bankAccount = account
             }
-            let signedAmount = cat?.isIncome == true ? amountDecimal.magnitude : -amountDecimal.magnitude
+            print("Processing transaction: amount=\(amountDecimal), isIncome=\(cat!.isIncome), delta=\(delta)")
             let requestBody: [String: Any] = [
                 "accountId": bankAccount.id,
                 "categoryId": transaction.categoryId,
-                "amount": NSDecimalNumber(decimal: signedAmount).stringValue,
+                "amount": NSDecimalNumber(decimal: amountDecimal).stringValue, // Отправляем абсолютное значение
                 "transactionDate": ISO8601DateFormatter().string(from: transaction.transactionDate),
                 "comment": transaction.comment ?? ""
             ]
@@ -187,7 +190,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             }
         }
     }
-
+    
     func createNewBankAccount() async throws {
         let endpoint = "api/v1/accounts"
         let requestBody: [String: Any] = [
@@ -208,27 +211,39 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         
         do {
             let endpoint = "api/v1/transactions/\(transaction.id)"
-            let amountDec2 = Decimal(string: transaction.amount) ?? 0
-            let categories2 = try await categoriesService.categories()
-            let cat2 = categories2.first(where: { $0.id == transaction.categoryId })
-            let signedAmount2 = cat2?.isIncome == true ? amountDec2.magnitude : -amountDec2.magnitude
+            let amountDecimal = Decimal(string: transaction.amount) ?? 0
+            let categories = try await categoriesService.categories()
+            let category = categories.first(where: { $0.id == transaction.categoryId })
+            let signedAmount = category?.isIncome == true ? amountDecimal : -amountDecimal
+            var delta = signedAmount
+
+            if let oldTransaction = oldTransaction, let oldCategory = oldCategory {
+                let oldAmount = Decimal(string: oldTransaction.amount) ?? 0
+                let oldSignedAmount = oldCategory.isIncome ? oldAmount : -oldAmount
+                delta -= oldSignedAmount
+            }
+
+            if var account = accountsService.bankAccount {
+                account.balance += delta
+                accountsService.bankAccount = account
+            }
+
             let requestBody: [String: Any] = [
                 "accountId": bankAccount.id,
                 "categoryId": transaction.categoryId,
-                "amount": NSDecimalNumber(decimal: signedAmount2).stringValue,
+                "amount": NSDecimalNumber(decimal: amountDecimal).stringValue, // Отправляем абсолютное значение
                 "transactionDate": ISO8601DateFormatter().string(from: transaction.transactionDate),
                 "comment": transaction.comment ?? ""
             ]
             let body = try JSONSerialization.data(withJSONObject: requestBody)
             let _: EmptyResponse = try await client.request(endpoint: endpoint, method: "PUT", body: body)
             
-            // Баланс рассчитывается сервером, просто обновляем локальный счёт
             _ = try? await accountsService.fetchBankAccount(forceReload: true)
             
             try await storage.editTransaction(transaction)
             try? await backupStorage.deleteTransaction(id: transaction.id)
             if !isSync {
-                NotificationCenter.default.post(name: .transactionsUpdated, object: nil) // Пересчет баланса убран, чтобы исключить двойное обновление
+                NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
             }
         } catch {
             try await backupStorage.editTransaction(transaction)
@@ -243,7 +258,6 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         do {
             if !NetworkStatusMonitor.shared.isConnected {
 
-                // Баланс обновит сервер, позже перезагрузим
                 try await storage.deleteTransaction(id: id)
                 NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
                 return
@@ -253,14 +267,12 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let _: EmptyResponse = try await client.request(endpoint: endpoint, method: "DELETE")
             
 
-            // Баланс обновит сервер
             try await storage.deleteTransaction(id: id)
             try? await backupStorage.deleteTransaction(id: id)
 
         } catch {
             if error.isNetworkError {
 
-                // В оффлайне локальный баланс не меняем – обновим после синха.
                 try await storage.deleteTransaction(id: id)
             } else {
                 throw error

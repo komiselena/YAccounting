@@ -87,32 +87,32 @@ final class BalanceViewModel: ObservableObject {
         }
     }
     
-    func recalculateBalance() async {
-        isLoading = true
-        defer { isLoading = false }
-        
-        do {
-            let categoriesService = CategoriesService()
-            let categories = try await categoriesService.categories()
-            
-            let transactionService = TransactionService(
-                accountsService: bankAccountService,
-                categoriesService: categoriesService
-            )
-            
-            let endDate = Date()
-            let startDate = Calendar.current.date(byAdding: .year, value: -1, to: endDate) ?? endDate
-            let transactions = try await transactionService.fetchTransactions(for: startDate...endDate)
-            
-            let transactionModels = transactions.map { $0.toTransaction() }
-            try await bankAccountService.recalculateBalance(transactions: transactionModels, categories: categories)
-            
-            print("Balance recalculation initiated successfully")
-        } catch {
-            print("Error recalculating balance: \(error)")
-            self.error = error
-        }
-    }
+//    func recalculateBalance() async {
+//        isLoading = true
+//        defer { isLoading = false }
+//        
+//        do {
+//            let categoriesService = CategoriesService()
+//            let categories = try await categoriesService.categories()
+//            
+//            let transactionService = TransactionService(
+//                accountsService: bankAccountService,
+//                categoriesService: categoriesService
+//            )
+//            
+//            let endDate = Date()
+//            let startDate = Calendar.current.date(byAdding: .year, value: -1, to: endDate) ?? endDate
+//            let transactions = try await transactionService.fetchTransactions(for: startDate...endDate)
+//            
+//            let transactionModels = transactions.map { $0.toTransaction() }
+//            try await bankAccountService.recalculateBalance(transactions: transactionModels, categories: categories)
+//            
+//            print("Balance recalculation initiated successfully")
+//        } catch {
+//            print("Error recalculating balance: \(error)")
+//            self.error = error
+//        }
+//    }
 }
 
 

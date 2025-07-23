@@ -8,11 +8,11 @@
 import Foundation
 
 protocol BankAccountsServiceProtocol {
+    var bankAccount: BankAccount? { get set }
     
     func fetchBankAccount(forceReload: Bool) async throws -> BankAccount
     func changeBankAccount(_ bankAccount: BankAccount) async throws
-    func recalculateBalance(transactions: [Transaction], categories: [Category]) async throws
+//    func recalculateBalance(transactions: [Transaction], categories: [Category]) async throws
     func updateBalanceForTransaction(_ transaction: Transaction, category: Category, isAdding: Bool) async throws
-    
     
 }

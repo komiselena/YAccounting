@@ -48,9 +48,7 @@ final class BankAccountsService: BankAccountsServiceProtocol {
                 print("FETCHED BANK ACCOUNT from network: \(selectedAccount)")
                 return selectedAccount
             } catch {
-                print("Ошибка запроса к сети: \(error)")
                 if let local = try? storage.fetchBankAccount() {
-                    print("Загружаем из SwiftData (fallback): \(local)")
                     self.bankAccount = local
                     return local
                 } else {
@@ -58,18 +56,14 @@ final class BankAccountsService: BankAccountsServiceProtocol {
                 }
             }
         } else {
-            // Если нет сети и нет локальных данных, пробрасываем ошибку
             throw NSError(domain: "BankAccountsService", code: 0, userInfo: [NSLocalizedDescriptionKey: "No network connection and no local data."])
         }
     }
     
     func changeBankAccount(_ bankAccount: BankAccount) async throws {
-        // Этот метод, вероятно, должен быть переименован или объединен с updateBankAccount
-        // Для простоты, он будет обновлять локальный кэш и затем пытаться обновить на сервере
         var updatedAccount = bankAccount
         updatedAccount.updatedAt = Date()
         
-        // Обновляем локальный кэш SwiftData
         try storage.save(bankAccount: updatedAccount)
         self.bankAccount = updatedAccount
         
@@ -108,7 +102,6 @@ final class BankAccountsService: BankAccountsServiceProtocol {
         bankAccount.currency = currency
         bankAccount.updatedAt = Date()
         
-        // Сначала обновляем на сервере
         if NetworkStatusMonitor.shared.isConnected {
             print("Updating account on server: \(balance)")
             let requestBody: [String: Any] = [
@@ -125,67 +118,71 @@ final class BankAccountsService: BankAccountsServiceProtocol {
                     body: body
                 )
                 
-                // Обновляем локальный кэш только после успешного обновления на сервере
                 try storage.save(bankAccount: updatedAccount)
                 self.bankAccount = updatedAccount
                 print("Account updated on server successfully: \(updatedAccount.balance)")
             } catch {
                 print("Failed to update account on server: \(error)")
-                // Если сервер недоступен, сохраняем локально, чтобы не потерять изменения
                 try storage.save(bankAccount: bankAccount)
                 self.bankAccount = bankAccount
                 throw error
             }
         } else {
-            // Если нет сети, сохраняем только локально
             print("No network connection, saving account locally: \(balance)")
             try storage.save(bankAccount: bankAccount)
             self.bankAccount = bankAccount
         }
     }
     
-    func recalculateBalance(transactions: [Transaction], categories: [Category]) async throws {
-        guard var bankAccount = self.bankAccount else {
-            bankAccount = try await fetchBankAccount(forceReload: false)
-            return
-        }
-        
-        // Начинаем с текущего баланса аккаунта для полного пересчета
-        let initialBalance: Decimal = bankAccount.balance
-        
-        // Вычисляем итоговый баланс на основе всех транзакций
-        let calculatedBalance = transactions.reduce(initialBalance) { currentBalance, transaction in
-            guard let category = categories.first(where: { $0.id == transaction.categoryId }),
-                  let transactionAmount = Decimal(string: transaction.amount, locale: Locale(identifier: "en_US")) else {
-                print("Warning: Could not process transaction \(transaction.id)")
-                return currentBalance
-            }
-            
-            let newBalance = category.isIncome
-                ? currentBalance + transactionAmount
-                : currentBalance - transactionAmount
-            
-            print("Transaction \(transaction.id): \(category.isIncome ? "+" : "-")\(transactionAmount) = \(newBalance)")
-            return newBalance
-        }
-        
-        print("Recalculated balance: \(calculatedBalance) (was: \(bankAccount.balance))")
-        
-        // Обновляем баланс только если он изменился
-        if calculatedBalance != bankAccount.balance {
-            try await updateBankAccount(
-                name: bankAccount.name,
-                balance: calculatedBalance,
-                currency: bankAccount.currency
-            )
-        }
-    }
-    
-    // Локальная корректировка баланса больше не требуется –
-    // баланс рассчитывается сервером. Метод оставлен пустым
-    // для совместимости с протоколом.
+//    func recalculateBalance(transactions: [Transaction], categories: [Category]) async throws {
+//        guard var bankAccount = self.bankAccount else {
+//            bankAccount = try await fetchBankAccount(forceReload: false)
+//            return
+//        }
+//        
+//        // Начинаем с текущего баланса аккаунта для полного пересчета
+//        let initialBalance: Decimal = bankAccount.balance
+//        
+//        // Вычисляем итоговый баланс на основе всех транзакций
+//        let calculatedBalance = transactions.reduce(initialBalance) { currentBalance, transaction in
+//            guard let category = categories.first(where: { $0.id == transaction.categoryId }),
+//                  let transactionAmount = Decimal(string: transaction.amount, locale: Locale(identifier: "en_US")) else {
+//                print("Warning: Could not process transaction \(transaction.id)")
+//                return currentBalance
+//            }
+//            
+//            let newBalance = category.isIncome
+//                ? currentBalance + transactionAmount
+//                : currentBalance - transactionAmount
+//            
+//            print("Transaction \(transaction.id): \(category.isIncome ? "+" : "-")\(transactionAmount) = \(newBalance)")
+//            return newBalance
+//        }
+//        
+//        print("Recalculated balance: \(calculatedBalance) (was: \(bankAccount.balance))")
+//        
+//        // Обновляем баланс только если он изменился
+//        if calculatedBalance != bankAccount.balance {
+//            try await updateBankAccount(
+//                name: bankAccount.name,
+//                balance: calculatedBalance,
+//                currency: bankAccount.currency
+//            )
+//        }
+//    }
     func updateBalanceForTransaction(_ transaction: Transaction, category: Category, isAdding: Bool) async throws {
-        // Ничего не делаем
+        guard var bankAccount = self.bankAccount else { return }
+        
+        let amount = Decimal(string: transaction.amount) ?? 0
+        let delta = category.isIncome ? amount : -amount
+        let adjustment = isAdding ? delta : -delta
+        
+        bankAccount.balance += adjustment
+        try await updateBankAccount(
+            name: bankAccount.name,
+            balance: bankAccount.balance,
+            currency: bankAccount.currency
+        )
     }
 }
 
