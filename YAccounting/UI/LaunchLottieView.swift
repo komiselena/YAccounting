@@ -6,13 +6,26 @@
 //
 
 import SwiftUI
+import LottieWrapper
 
 struct LaunchLottieView: View {
+    let animationName: String = "LottieAnimation"
+    @Binding var showLaunchAnimation: Bool
+    
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+        ZStack {
+            Color.tint.opacity (1.0)
+            ignoresSafeArea ()
+            LottieView(animationName: animationName) {
+                withAnimation {
+                    showLaunchAnimation = false
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 }
 
-#Preview {
-    LaunchLottieView()
-}
+//#Preview {
+//    LaunchLottieView()
+//}

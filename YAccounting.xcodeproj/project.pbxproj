@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		049EC2A32E2FEAD700920E9D /* LottieWrapper in Frameworks */ = {isa = PBXBuildFile; productRef = 049EC2A22E2FEAD700920E9D /* LottieWrapper */; };
+		049EC2B62E301D3100920E9D /* LottieWrapper in Frameworks */ = {isa = PBXBuildFile; productRef = 049EC2B52E301D3100920E9D /* LottieWrapper */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,7 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				049EC2A32E2FEAD700920E9D /* LottieWrapper in Frameworks */,
+				049EC2B62E301D3100920E9D /* LottieWrapper in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -130,7 +130,7 @@
 			);
 			name = YAccounting;
 			packageProductDependencies = (
-				049EC2A22E2FEAD700920E9D /* LottieWrapper */,
+				049EC2B52E301D3100920E9D /* LottieWrapper */,
 			);
 			productName = YAccounting;
 			productReference = 04E791112DF362F10069CBB9 /* YAccounting.app */;
@@ -215,7 +215,7 @@
 			mainGroup = 04E791082DF362F10069CBB9;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				049EC2A12E2FEAD700920E9D /* XCLocalSwiftPackageReference "LottieWrapper" */,
+				049EC2B42E301D3100920E9D /* XCLocalSwiftPackageReference "LottieWrapper" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 04E791122DF362F10069CBB9 /* Products */;
@@ -586,14 +586,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		049EC2A12E2FEAD700920E9D /* XCLocalSwiftPackageReference "LottieWrapper" */ = {
+		049EC2B42E301D3100920E9D /* XCLocalSwiftPackageReference "LottieWrapper" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LottieWrapper;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		049EC2A22E2FEAD700920E9D /* LottieWrapper */ = {
+		049EC2B52E301D3100920E9D /* LottieWrapper */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LottieWrapper;
 		};
