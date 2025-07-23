@@ -9,13 +9,15 @@ import SwiftUI
 
 struct BalanceEditView: View {
     @ObservedObject var balanceViewModel: BalanceViewModel
-    @ObservedObject private var balanceEditvm: BalanceEditViewModel
+    // ИСПРАВЛЕНО: Изменено на @StateObject для правильного управления состоянием
+    @StateObject private var balanceEditvm: BalanceEditViewModel
     @State private var showPopup = false
     @FocusState private var isBalanceFieldFocused: Bool
     
     init(balanceViewModel: BalanceViewModel) {
         self.balanceViewModel = balanceViewModel
-        self.balanceEditvm = BalanceEditViewModel(balanceViewModel: balanceViewModel)
+        // ИСПРАВЛЕНО: Правильная инициализация @StateObject
+        self._balanceEditvm = StateObject(wrappedValue: BalanceEditViewModel(balanceViewModel: balanceViewModel))
     }
 
     var body: some View {
@@ -46,6 +48,12 @@ struct BalanceEditView: View {
         .swipeToDismiss($balanceEditvm.editBalance) {
             Task {
                 await balanceEditvm.submitBalance()
+            }
+        }
+        // ДОБАВЛЕНО: Инициализация при появлении представления
+        .onAppear {
+            if !balanceEditvm.editBalance {
+                balanceEditvm.startEditingBalance()
             }
         }
     }
@@ -125,7 +133,8 @@ struct BalanceEditView: View {
                             Task { await balanceEditvm.submitBalance() }
                         }
                 } else {
-                    Text(balanceViewModel.bankAccount?.balance ?? "0")
+                    // ИСПРАВЛЕНО: Используем форматтер для отображения Decimal
+                    Text("\(formatBalance(balanceViewModel.bankAccount?.balance ?? 0))")
                         .foregroundStyle(.secondary)
                 }
                 
@@ -138,7 +147,18 @@ struct BalanceEditView: View {
         .frame(height: 50)
         .onTapGesture {
             balanceEditvm.startEditingBalance()
+            isBalanceFieldFocused = true
         }
+    }
+    
+    // ДОБАВЛЕНО: Метод форматирования баланса
+    private func formatBalance(_ balance: Decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 2
+        formatter.locale = Locale.current
+        return formatter.string(from: NSDecimalNumber(decimal: balance)) ?? "0"
     }
     
     private func currencyView() -> some View {
@@ -167,3 +187,4 @@ struct BalanceEditView: View {
         .background(Color(.systemGroupedBackground))
 
 }
+

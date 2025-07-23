@@ -41,7 +41,7 @@ final class BankAccountSwiftDataStorage {
         
         if let existing = existing {
             existing.name = bankAccount.name
-            existing.balance = Decimal(string: bankAccount.balance) ?? 0
+            existing.balance = bankAccount.balance
             existing.currency = bankAccount.currency
             existing.updatedAt = bankAccount.updatedAt
         } else {

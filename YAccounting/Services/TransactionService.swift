@@ -47,7 +47,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
                 let account = try await self.accountsService.fetchBankAccount()
                 let category = try await self.categoriesService.categories().first(where: { $0.id == transaction.categoryId })
                 return transaction.toTransactionResponse(
-                    account: Account(id: account.id, name: account.name, balance: account.balance, currency: account.currency),
+                    account: Account(id: account.id, name: account.name, balance: NSDecimalNumber(decimal: account.balance).stringValue, currency: account.currency),
                     category: category ?? Category(id: 0, name: "Uncategorized", emoji: "🔎", isIncome: false)
                 )
             }
@@ -61,6 +61,10 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let endpoint = "api/v1/transactions/account/\(bankAccount.id)/period?startDate=\(period.lowerBound.formatPeriod())&endDate=\(period.upperBound.formatPeriod())"
             let serverResponses = try await client.request(endpoint: endpoint) as [TransactionResponse]
             try await saveNewTransactions(serverResponses)
+            
+            // НОВОЕ: Пересчитываем баланс после получения транзакций с сервера
+            try await recalculateAccountBalance()
+            
             return serverResponses
         } catch {
             let localTransactions = try await storage.fetchTransactions(for: period)
@@ -72,17 +76,31 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
                 let account = try await self.accountsService.fetchBankAccount()
                 let category = try await self.categoriesService.categories().first(where: { $0.id == transaction.categoryId })
                 return transaction.toTransactionResponse(
-                    account: Account(id: account.id, name: account.name, balance: account.balance, currency: account.currency),
+                    account: Account(id: account.id, name: account.name, balance: NSDecimalNumber(decimal: account.balance).stringValue, currency: account.currency),
                     category: category ?? Category(id: 0, name: "Uncategorized", emoji: "🔎", isIncome: false)
                 )
             }
         }
     }
     
+    // НОВЫЙ МЕТОД: Пересчет баланса аккаунта на основе всех транзакций
+    private func recalculateAccountBalance() async throws {
+        let bankAccount = try await accountsService.fetchBankAccount()
+        
+        // Получаем все транзакции для данного аккаунта
+        let allTransactions = try await storage.fetchAllTransactions()
+        let accountTransactions = allTransactions.filter { $0.accountId == bankAccount.id }
+        
+        // Получаем все категории
+        let categories = try await categoriesService.categories()
+        
+        // Пересчитываем баланс
+        try await accountsService.recalculateBalance(transactions: accountTransactions, categories: categories)
+    }
+    
     private func syncBackupTransactions() async throws {
         let unsyncedTransactions = try await backupStorage.fetchAllTransactions()
-        let deletions = try await backupStorage.fetchPendingDeletions() 
-        
+        let deletions = try await backupStorage.fetchPendingDeletions()
         
         for transaction in unsyncedTransactions {
             do {
@@ -141,9 +159,8 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let body = try JSONSerialization.data(withJSONObject: requestBody)
             let response: Transaction = try await client.request(endpoint: endpoint, method: "POST", body: body)
             
-            // Обновляем баланс
             if let category = try? await categoriesService.categories().first(where: { $0.id == transaction.categoryId }) {
-                try await accountsService.updateBalance(with: response, category: category)
+                try await accountsService.updateBalanceForTransaction(response, category: category, isAdding: true)
             }
             
             try await storage.createTransaction(response)
@@ -170,18 +187,13 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         let body = try JSONSerialization.data(withJSONObject: requestBody)
         let response: BankAccount = try await client.request(endpoint: endpoint, method: "POST", body: body)
         print(response)
-        
     }
 
     func editTransaction(_ transaction: Transaction, isSync: Bool = false) async throws {
-        // Получаем старую транзакцию для отмены ее влияния на баланс
-        if let oldTransaction = try? await storage.fetchTransaction(id: transaction.id),
-           let oldCategory = try? await categoriesService.categories().first(where: { $0.id == oldTransaction.categoryId }) {
-            try await accountsService.reverseBalance(with: oldTransaction, category: oldCategory)
-        }
-        
-        // Обновляем транзакцию
         let bankAccount = try await accountsService.fetchBankAccount()
+        
+        let oldTransaction = try? await storage.fetchTransaction(id: transaction.id)
+        let oldCategory = oldTransaction != nil ? try? await categoriesService.categories().first(where: { $0.id == oldTransaction!.categoryId }) : nil
         
         do {
             let endpoint = "api/v1/transactions/\(transaction.id)"
@@ -195,9 +207,12 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let body = try JSONSerialization.data(withJSONObject: requestBody)
             let _: EmptyResponse = try await client.request(endpoint: endpoint, method: "PUT", body: body)
             
-            // Обновляем баланс с учетом новой транзакции
+            if let oldTrans = oldTransaction, let oldCat = oldCategory {
+                try await accountsService.updateBalanceForTransaction(oldTrans, category: oldCat, isAdding: false)
+            }
+            
             if let category = try? await categoriesService.categories().first(where: { $0.id == transaction.categoryId }) {
-                try await accountsService.updateBalance(with: transaction, category: category)
+                try await accountsService.updateBalanceForTransaction(transaction, category: category, isAdding: true)
             }
             
             try await storage.editTransaction(transaction)
@@ -212,14 +227,15 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
     }
 
     func deleteTransaction(id: Int) async throws {
-        // Получаем транзакцию для отмены ее влияния на баланс
-        if let transaction = try? await storage.fetchTransaction(id: id),
-           let category = try? await categoriesService.categories().first(where: { $0.id == transaction.categoryId }) {
-            try await accountsService.reverseBalance(with: transaction, category: category)
-        }
+        let transaction = try? await storage.fetchTransaction(id: id)
+        let category = transaction != nil ? try? await categoriesService.categories().first(where: { $0.id == transaction!.categoryId }) : nil
         
         do {
             if !NetworkStatusMonitor.shared.isConnected {
+                // ИЗМЕНЕНО: Обновляем баланс даже в оффлайн режиме
+                if let trans = transaction, let cat = category {
+                    try await accountsService.updateBalanceForTransaction(trans, category: cat, isAdding: false)
+                }
                 try await storage.deleteTransaction(id: id)
                 NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
                 return
@@ -227,11 +243,21 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             
             let endpoint = "api/v1/transactions/\(id)"
             let _: EmptyResponse = try await client.request(endpoint: endpoint, method: "DELETE")
+            
+            // ИЗМЕНЕНО: Обновляем баланс после успешного удаления на сервере
+            if let trans = transaction, let cat = category {
+                try await accountsService.updateBalanceForTransaction(trans, category: cat, isAdding: false)
+            }
+            
             try await storage.deleteTransaction(id: id)
             try? await backupStorage.deleteTransaction(id: id)
             NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
         } catch {
             if error.isNetworkError {
+                // В случае сетевой ошибки все равно обновляем локальный баланс
+                if let trans = transaction, let cat = category {
+                    try await accountsService.updateBalanceForTransaction(trans, category: cat, isAdding: false)
+                }
                 try await storage.deleteTransaction(id: id)
             } else {
                 throw error
@@ -239,6 +265,8 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         }
     }
 }
+
+// Остальные расширения остаются без изменений
 extension Notification.Name {
     static let transactionsUpdated = Notification.Name("transactionsUpdated")
 }
@@ -284,3 +312,4 @@ extension Error {
         ].contains(nsError.code)
     }
 }
+

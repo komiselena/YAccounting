@@ -42,7 +42,7 @@ final class BankAccountModel {
             id: bankAccount.id,
             userId: bankAccount.userId,
             name: bankAccount.name,
-            balance: Decimal(string: bankAccount.balance) ?? 0,
+            balance: bankAccount.balance ,
             currency: bankAccount.currency,
             createdAt: bankAccount.createdAt,
             updatedAt: bankAccount.updatedAt
@@ -54,10 +54,10 @@ final class BankAccountModel {
             id: id,
             userId: userId,
             name: name,
-            balance: String(describing: balance),
+            balance: balance,
             currency: currency,
-            createdAt: createdAt,
-            updatedAt: updatedAt
+            createdAt: createdAt ?? Date.now,
+            updatedAt: updatedAt ?? Date.now
         )
     }
 }

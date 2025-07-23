@@ -62,7 +62,6 @@ final class NetworkClient {
         request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
-        // Set accept header based on method
         if method == "DELETE" {
             request.setValue("*/*", forHTTPHeaderField: "accept")
         } else {

@@ -11,7 +11,8 @@ protocol BankAccountsServiceProtocol {
     
     func fetchBankAccount() async throws -> BankAccount
     func changeBankAccount(_ bankAccount: BankAccount) async throws
-    func updateBalance(with transaction: Transaction, category: Category) async throws
-    func reverseBalance(with transaction: Transaction, category: Category) async throws 
-
+    func recalculateBalance(transactions: [Transaction], categories: [Category]) async throws
+    func updateBalanceForTransaction(_ transaction: Transaction, category: Category, isAdding: Bool) async throws
+    
+    
 }

@@ -26,7 +26,9 @@ final class BalanceEditViewModel: ObservableObject {
     }
     
     func startEditingBalance() {
-        balanceText = balanceViewModel?.bankAccount?.balance ?? "0"
+        // ИСПРАВЛЕНО: Правильное получение текущего баланса
+        let currentBalance = balanceViewModel?.bankAccount?.balance ?? 0
+        balanceText = NSDecimalNumber(decimal: currentBalance).stringValue
         editBalance = true
     }
     
@@ -34,25 +36,39 @@ final class BalanceEditViewModel: ObservableObject {
         isUpdating = true
         defer { isUpdating = false }
         
-        guard let viewModel = balanceViewModel else { return }
+        guard let viewModel = balanceViewModel else {
+            print("BalanceViewModel is nil")
+            return
+        }
         
-        // Используем правильный формат для Decimal
-        let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: "en_US")
-        formatter.numberStyle = .decimal
-        
-        let currentBalance = Decimal(string: viewModel.bankAccount?.balance ?? "0", locale: Locale(identifier: "en_US")) ?? 0
-        let newBalance = Decimal(string: balanceText, locale: Locale(identifier: "en_US")) ?? currentBalance
-        
-        if newBalance == currentBalance {
+        // ИСПРАВЛЕНО: Добавлена проверка на пустую строку
+        guard !balanceText.isEmpty else {
+            print("Balance text is empty")
             editBalance = false
             return
         }
+        
+        let currentBalance = viewModel.bankAccount?.balance ?? 0
+        guard let newBalance = Decimal(string: balanceText, locale: Locale(identifier: "en_US")) else {
+            print("Failed to convert balance text to Decimal: \(balanceText)")
+            self.error = NSError(domain: "Invalid balance format", code: 0, userInfo: [NSLocalizedDescriptionKey: "Неверный формат баланса"])
+            return
+        }
+        
+        // ИСПРАВЛЕНО: Проверка на изменение баланса с учетом точности
+//        if abs(newBalance.doubleValue - currentBalance.doubleValue) < 0.01 {
+//            print("Balance unchanged")
+//            editBalance = false
+//            return
+//        }
 
         do {
+            print("Updating balance from \(currentBalance) to \(newBalance)")
             await viewModel.updateBalance(newBalance)
             editBalance = false
+            print("Balance updated successfully")
         } catch {
+            print("Error updating balance: \(error)")
             self.error = error
         }
     }
@@ -80,3 +96,4 @@ final class BalanceEditViewModel: ObservableObject {
         return filtered
     }
 }
+

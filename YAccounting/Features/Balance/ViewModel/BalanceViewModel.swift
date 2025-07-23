@@ -19,18 +19,18 @@ final class BalanceViewModel: ObservableObject {
     @Published var balanceScreenState: BalanceState = .view
     
     
-    init() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleTransactionsUpdate),
-            name: .transactionsUpdated,
-            object: nil
-        )
-    }
+//    init() {
+//        NotificationCenter.default.addObserver(
+//            self,
+//            selector: #selector(handleTransactionsUpdate),
+//            name: .transactionsUpdated,
+//            object: nil
+//        )
+//    }
     
-    @objc private func handleTransactionsUpdate() {
-        Task { await loadBankAccountData() }
-    }
+//    @objc private func handleTransactionsUpdate() {
+//        Task { await loadBankAccountData() }
+//    }
 
     func loadBankAccountData() async {
         isLoading = true
@@ -41,7 +41,9 @@ final class BalanceViewModel: ObservableObject {
             if let currencyString = bankAccount?.currency {
                 currentCurrency = Currency(rawValue: currencyString) ?? .RUB
             }
+            print("Loaded bank account: \(bankAccount?.balance ?? 0)")
         } catch {
+            print("Error loading bank account: \(error)")
             self.error = error
         }
     }
@@ -55,16 +57,27 @@ final class BalanceViewModel: ObservableObject {
         }
     }
 
-    
     func updateBalance(_ newBalance: Decimal) async {
-        guard let account = bankAccount else { return }
+        guard let account = bankAccount else {
+            print("No bank account to update")
+            return
+        }
+        
+        print("Updating balance to: \(newBalance)")
+        
         do {
             try await bankAccountService.updateBankAccount(
                 name: account.name,
                 balance: newBalance,
                 currency: account.currency
             )
-            await loadBankAccountData()
+            // ИСПРАВЛЕНО: Обновляем локальный объект сразу после успешного обновления
+            var updatedAccount = account
+            updatedAccount.balance = newBalance
+            updatedAccount.updatedAt = Date()
+            bankAccount = updatedAccount
+            
+            print("Balance updated successfully to: \(newBalance)")
         } catch {
             print("Error updating balance: \(error)")
             self.error = error
@@ -77,10 +90,46 @@ final class BalanceViewModel: ObservableObject {
         do{
             try await bankAccountService.changeBankAccount(account)
             bankAccount = account
+            currentCurrency = Currency(rawValue: newCurrency) ?? .RUB
         }catch{
-            print("Error updating balance: \(error)")
+            print("Error updating currency: \(error)")
         }
     }
-
     
+    // НОВЫЙ МЕТОД: Принудительный пересчет баланса на основе всех транзакций
+    func recalculateBalance() async {
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            // Получаем все транзакции и категории для пересчета
+            let categoriesService = CategoriesService()
+            let categories = try await categoriesService.categories()
+            
+            // Здесь нужно получить все транзакции для аккаунта
+            // Для этого создадим временный TransactionService
+            let transactionService = TransactionService(
+                accountsService: bankAccountService,
+                categoriesService: categoriesService
+            )
+            
+            // Получаем все транзакции за большой период (например, за последний год)
+            let endDate = Date()
+            let startDate = Calendar.current.date(byAdding: .year, value: -1, to: endDate) ?? endDate
+            let transactions = try await transactionService.fetchTransactions(for: startDate...endDate)
+            
+            // Пересчитываем баланс
+            let transactionModels = transactions.map { $0.toTransaction() }
+            try await bankAccountService.recalculateBalance(transactions: transactionModels, categories: categories)
+            
+            // Перезагружаем данные аккаунта
+            await loadBankAccountData()
+            
+            print("Balance recalculated successfully")
+        } catch {
+            print("Error recalculating balance: \(error)")
+            self.error = error
+        }
+    }
 }
+

@@ -15,7 +15,6 @@ struct BalanceView: View {
     private let motionManager = CMMotionManager()
     @State private var lastShakeTime: Date?
 
-    
     var body: some View {
         ScrollView {
             VStack(spacing: 15) {
@@ -58,8 +57,7 @@ struct BalanceView: View {
                             spoilerManager.stopAnimation()
                         }
                 } else {
-                    
-                    Text("\(balanceViewModel.bankAccount?.balance ?? "0") \(balanceViewModel.currentCurrency.rawValue)")
+                    Text("\(formatBalance(balanceViewModel.bankAccount?.balance ?? 0)) \(balanceViewModel.currentCurrency.rawValue)")
                 }
             }
             .padding(.horizontal)
@@ -68,6 +66,15 @@ struct BalanceView: View {
         .frame(height: 50)
     }
     
+    private func formatBalance(_ balance: Decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 2
+        formatter.locale = Locale.current
+        
+        return formatter.string(from: NSDecimalNumber(decimal: balance)) ?? "0"
+    }
     
     private func currency() -> some View {
         ZStack {
@@ -118,3 +125,4 @@ struct BalanceView: View {
 #Preview {
     BalanceView(balanceViewModel: BalanceViewModel())
 }
+
