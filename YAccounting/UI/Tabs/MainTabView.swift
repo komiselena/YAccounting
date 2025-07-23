@@ -9,7 +9,7 @@ import SwiftUI
 
 struct MainTabView: View {
     private let categoriesService = CategoriesService()
-    private let accountsService = BankAccountsService()
+    private let accountsService = BankAccountsService.shared
     @State private var showLaunchAnimation = true
 
     var body: some View {
@@ -55,7 +55,7 @@ struct MainTabView: View {
                             }
                             
                         }
-                        .environmentObject(BalanceViewModel(bankAccountService: BankAccountsService()))
+                        .environmentObject(BalanceViewModel(bankAccountService: accountsService))
 
                     
                     

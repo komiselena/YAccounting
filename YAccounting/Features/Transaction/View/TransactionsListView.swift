@@ -14,7 +14,7 @@ struct TransactionsListView: View {
 
     init(direction: Direction) {
         let categoriesService = CategoriesService()
-        let accountsService = BankAccountsService()
+        let accountsService = BankAccountsService.shared
         _viewModel = StateObject(wrappedValue: TransactionViewModel(
             direction: direction,
             categoriesService: categoriesService,
@@ -47,6 +47,18 @@ struct TransactionsListView: View {
             .navigationTitle(viewModel.direction == .outcome ? "Расходы сегодня" : "Доходы сегодня")
             .background(Color(.systemGroupedBackground))
 
+            .overlay {
+                if viewModel.isProcessingOperation {
+                    ZStack {
+                        Color.black.opacity(0.25)
+                            .ignoresSafeArea()
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: Color("tintColor")))
+                            .scaleEffect(1.5)
+                    }
+                }
+            }
+ 
         }
         
         .refreshable {
@@ -94,24 +106,27 @@ struct TransactionsListView: View {
                     }
                     
                     Section("ОПЕРАЦИИ") {
-                        ForEach(sortedTransactions.filter {
-                            Calendar.current.startOfDay(for: Date.now) <= $0.transactionDate && viewModel.endDate >= $0.transactionDate
-                        }) { transaction in
-
-                            let category = viewModel.categories.first { $0.id == transaction.categoryId } ?? Category(id: 0, name: "Other", emoji: "❓", isIncome: false)
-                            Button {
-                                viewModel.transaction = transaction
-                                viewModel.transactionScreenMode = .edit
-                                viewModel.selectedCategory = category
-                                viewModel.comment = transaction.comment
-                                viewModel.amountString = transaction.amount
-                                viewModel.date = transaction.transactionDate
-                                viewModel.showTransactionView = true
-                            } label: {
-                                TransactionListRow(transaction: transaction, category: category)
+                        let displayTransactions = sortedTransactions
+                        if displayTransactions.isEmpty {
+                            Text("Нет операций")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(displayTransactions) { transaction in
+                                let category = viewModel.categories.first { $0.id == transaction.categoryId } ?? Category(id: 0, name: "Other", emoji: "❓", isIncome: false)
+                                Button {
+                                    viewModel.transaction = transaction
+                                    viewModel.transactionScreenMode = .edit
+                                    viewModel.selectedCategory = category
+                                    viewModel.comment = transaction.comment
+                                    viewModel.amountString = transaction.amount
+                                    viewModel.date = transaction.transactionDate
+                                    viewModel.showTransactionView = true
+                                } label: {
+                                    TransactionListRow(transaction: transaction, category: category)
+                                }
                             }
+                            .onDelete(perform: deleteTransaction)
                         }
-                        .onDelete(perform: deleteTransaction)
                     }
                 }
                 .overlay(addButton, alignment: .bottomTrailing)

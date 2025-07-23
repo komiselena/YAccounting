@@ -57,7 +57,9 @@ struct BalanceView: View {
                             spoilerManager.stopAnimation()
                         }
                 } else {
-                    Text("\(formatBalance(balanceViewModel.bankAccount?.balance ?? 0)) \(balanceViewModel.currentCurrency.rawValue)")
+                    let balanceValue = balanceViewModel.bankAccount?.balance ?? 0
+                    Text("\(formatBalance(balanceValue)) \(balanceViewModel.currentCurrency.rawValue)")
+                        .foregroundStyle(balanceValue < 0 ? Color.red : Color.primary)
                 }
             }
             .padding(.horizontal)

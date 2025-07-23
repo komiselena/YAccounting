@@ -134,8 +134,9 @@ struct BalanceEditView: View {
                         }
                 } else {
                     // ИСПРАВЛЕНО: Используем форматтер для отображения Decimal
-                    Text("\(formatBalance(balanceViewModel.bankAccount?.balance ?? 0))")
-                        .foregroundStyle(.secondary)
+                    let balanceValue = balanceViewModel.bankAccount?.balance ?? 0
+                    Text("\(formatBalance(balanceValue))")
+                        .foregroundStyle(balanceValue < 0 ? Color.red : Color.secondary)
                 }
                 
                 Text(balanceViewModel.currentCurrency.rawValue)

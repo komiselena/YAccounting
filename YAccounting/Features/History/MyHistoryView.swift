@@ -25,7 +25,7 @@ struct MyHistoryView: View {
     
     init(direction: Direction) {
         let categoriesService = CategoriesService()
-        let accountsService = BankAccountsService()
+        let accountsService = BankAccountsService.shared
         let historyViewModel = MyHistoryViewModel(
             direction: direction,
             categoriesService: categoriesService,
@@ -134,6 +134,10 @@ struct MyHistoryView: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: $viewModel.showTransactionView) {
+            TransactionView(viewModel: viewModel)
+        }
+
 
         .task {
             await historyViewModel.loadData()

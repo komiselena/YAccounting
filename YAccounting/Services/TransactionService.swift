@@ -43,7 +43,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         if !NetworkStatusMonitor.shared.isConnected {
             
             let localTransactions = try await storage.fetchTransactions(for: period)
-            // Получаем данные аккаунта и категории один раз, чтобы не делать повторных запросов
+
             let account = try await self.accountsService.fetchBankAccount(forceReload: false)
             let categories = try await self.categoriesService.categories()
 
@@ -65,9 +65,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let serverResponses = try await client.request(endpoint: endpoint) as [TransactionResponse]
             try await saveNewTransactions(serverResponses)
             
-            // УДАЛЕНО: Пересчет баланса после получения транзакций с сервера
-            // try await recalculateAccountBalance()
-            
+
             return serverResponses
         } catch {
             let localTransactions = try await storage.fetchTransactions(for: period)
@@ -75,7 +73,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let combined = (localTransactions + backupTransactions)
             let uniqueTransactions = combined.unique(by: \.id)
             
-            // Оптимизация: одно обращение к сервисам вместо нескольких
+
             let account = try await self.accountsService.fetchBankAccount(forceReload: false)
             let categories = try await self.categoriesService.categories()
 
@@ -89,18 +87,18 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         }
     }
     
-    // НОВЫЙ МЕТОД: Пересчет баланса аккаунта на основе всех транзакций
+
     private func recalculateAccountBalance() async throws {
         let bankAccount = try await accountsService.fetchBankAccount(forceReload: true) // Force reload to get latest from server
         
-        // Получаем все транзакции для данного аккаунта
+
         let allTransactions = try await storage.fetchAllTransactions()
         let accountTransactions = allTransactions.filter { $0.accountId == bankAccount.id }
         
-        // Получаем все категории
+
         let categories = try await categoriesService.categories()
         
-        // Пересчитываем баланс
+
         try await accountsService.recalculateBalance(transactions: accountTransactions, categories: categories)
     }
     
@@ -165,9 +163,8 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let body = try JSONSerialization.data(withJSONObject: requestBody)
             let response: Transaction = try await client.request(endpoint: endpoint, method: "POST", body: body)
             
-            if let category = try? await categoriesService.categories().first(where: { $0.id == transaction.categoryId }) {
-                try await accountsService.updateBalanceForTransaction(response, category: category, isAdding: true)
-            }
+            // Баланс рассчитывает сервер. После успешного создания просто перезагружаем счёт с сервера.
+            _ = try? await accountsService.fetchBankAccount(forceReload: true)
             
             try await storage.createTransaction(response)
             try? await backupStorage.deleteTransaction(id: transaction.id)
@@ -213,13 +210,8 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let body = try JSONSerialization.data(withJSONObject: requestBody)
             let _: EmptyResponse = try await client.request(endpoint: endpoint, method: "PUT", body: body)
             
-            if let oldTrans = oldTransaction, let oldCat = oldCategory {
-                try await accountsService.updateBalanceForTransaction(oldTrans, category: oldCat, isAdding: false)
-            }
-            
-            if let category = try? await categoriesService.categories().first(where: { $0.id == transaction.categoryId }) {
-                try await accountsService.updateBalanceForTransaction(transaction, category: category, isAdding: true)
-            }
+            // Баланс рассчитывается сервером, просто обновляем локальный счёт
+            _ = try? await accountsService.fetchBankAccount(forceReload: true)
             
             try await storage.editTransaction(transaction)
             try? await backupStorage.deleteTransaction(id: transaction.id)
@@ -238,10 +230,8 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         
         do {
             if !NetworkStatusMonitor.shared.isConnected {
-                // ИЗМЕНЕНО: Обновляем баланс даже в оффлайн режиме
-                if let trans = transaction, let cat = category {
-                    try await accountsService.updateBalanceForTransaction(trans, category: cat, isAdding: false)
-                }
+
+                // Баланс обновит сервер, позже перезагрузим
                 try await storage.deleteTransaction(id: id)
                 NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
                 return
@@ -250,23 +240,15 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let endpoint = "api/v1/transactions/\(id)"
             let _: EmptyResponse = try await client.request(endpoint: endpoint, method: "DELETE")
             
-            // ИЗМЕНЕНО: Обновляем баланс после успешного удаления на сервере
-            if let trans = transaction, let cat = category {
-                try await accountsService.updateBalanceForTransaction(trans, category: cat, isAdding: false)
-            }
-            
+
+            // Баланс обновит сервер
             try await storage.deleteTransaction(id: id)
             try? await backupStorage.deleteTransaction(id: id)
-//            if !isSync {
-//                NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
-//                try await recalculateAccountBalance() // Recalculate balance after successful deletion
-//            }
+
         } catch {
             if error.isNetworkError {
-                // В случае сетевой ошибки все равно обновляем локальный баланс
-                if let trans = transaction, let cat = category {
-                    try await accountsService.updateBalanceForTransaction(trans, category: cat, isAdding: false)
-                }
+
+                // В оффлайне локальный баланс не меняем – обновим после синха.
                 try await storage.deleteTransaction(id: id)
             } else {
                 throw error
@@ -275,7 +257,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
     }
 }
 
-// Остальные расширения остаются без изменений
+
 extension Notification.Name {
     static let transactionsUpdated = Notification.Name("transactionsUpdated")
 }

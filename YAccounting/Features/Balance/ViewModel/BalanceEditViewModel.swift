@@ -26,7 +26,6 @@ final class BalanceEditViewModel: ObservableObject {
     }
     
     func startEditingBalance() {
-        // ИСПРАВЛЕНО: Правильное получение текущего баланса
         let currentBalance = balanceViewModel?.bankAccount?.balance ?? 0
         balanceText = NSDecimalNumber(decimal: currentBalance).stringValue
         editBalance = true
@@ -37,55 +36,38 @@ final class BalanceEditViewModel: ObservableObject {
         defer { isUpdating = false }
         
         guard let viewModel = balanceViewModel else {
-            print("BalanceViewModel is nil")
             return
         }
         
-        // ИСПРАВЛЕНО: Добавлена проверка на пустую строку
         guard !balanceText.isEmpty else {
-            print("Balance text is empty")
             editBalance = false
             return
         }
         
         let currentBalance = viewModel.bankAccount?.balance ?? 0
         guard let newBalance = Decimal(string: balanceText, locale: Locale(identifier: "en_US")) else {
-            print("Failed to convert balance text to Decimal: \(balanceText)")
             self.error = NSError(domain: "Invalid balance format", code: 0, userInfo: [NSLocalizedDescriptionKey: "Неверный формат баланса"])
             return
         }
         
-        // ИСПРАВЛЕНО: Проверка на изменение баланса с учетом точности
-//        if abs(newBalance.doubleValue - currentBalance.doubleValue) < 0.01 {
-//            print("Balance unchanged")
-//            editBalance = false
-//            return
-//        }
-
         do {
-            print("Updating balance from \(currentBalance) to \(newBalance)")
             await viewModel.updateBalance(newBalance)
             editBalance = false
-            print("Balance updated successfully")
         } catch {
-            print("Error updating balance: \(error)")
             self.error = error
         }
     }
     
     private func filterBalanceInput(_ input: String) -> String {
-        // Заменяем запятые на точки и оставляем только цифры и точку
         var filtered = input.replacingOccurrences(of: ",", with: ".")
             .filter { "0123456789.".contains($0) }
         
-        // Удаляем лишние точки
         if let firstDotIndex = filtered.firstIndex(of: ".") {
             let beforeDot = filtered[..<firstDotIndex]
             let afterDot = filtered[filtered.index(after: firstDotIndex)...].filter { $0 != "." }
             filtered = String(beforeDot) + "." + afterDot
         }
         
-        // Ограничиваем дробную часть до 2 знаков
         if let dotIndex = filtered.firstIndex(of: ".") {
             let fractionalPart = filtered[filtered.index(after: dotIndex)...]
             if fractionalPart.count > 2 {

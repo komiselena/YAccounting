@@ -20,7 +20,7 @@ struct TransactionView: View {
 
     init(viewModel: TransactionViewModel) {
         self._viewModel = StateObject(wrappedValue: viewModel)
-        self._balanceViewModel = StateObject(wrappedValue: BalanceViewModel(bankAccountService: BankAccountsService()))
+        self._balanceViewModel = StateObject(wrappedValue: BalanceViewModel(bankAccountService: BankAccountsService.shared))
     }
 
     var body: some View {

@@ -33,6 +33,8 @@ final class TransactionViewModel: ObservableObject {
     @Published var comment: String?
     @Published var alertState: AlertState?
 
+    @Published var isProcessingOperation: Bool = false
+
     private var dateRange: ClosedRange<Date> {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: startDate)
@@ -129,6 +131,7 @@ final class TransactionViewModel: ObservableObject {
             return
         }
         Task {
+            isProcessingOperation = true
             isLoading = true
             do {
                 let transactionToSave = try createTransactionObject()
@@ -160,6 +163,7 @@ final class TransactionViewModel: ObservableObject {
                 }
             }
             isLoading = false
+            isProcessingOperation = false
         }
     }
     func createNewBankAccount() {
@@ -196,6 +200,7 @@ final class TransactionViewModel: ObservableObject {
 
     func deleteTransaction() async {
         guard let transaction = transaction else { return }
+        isProcessingOperation = true
         isLoading = true
         do {
             try await transactionService.deleteTransaction(id: transaction.id)
@@ -217,6 +222,7 @@ final class TransactionViewModel: ObservableObject {
             }
         }
         isLoading = false
+        isProcessingOperation = false
     }
     private func resetForm() {
         transaction = nil
