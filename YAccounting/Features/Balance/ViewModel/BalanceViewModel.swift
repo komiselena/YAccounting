@@ -6,10 +6,13 @@
 //
 
 import Foundation
+import Combine
 
 @MainActor
 final class BalanceViewModel: ObservableObject {
-    private let bankAccountService = BankAccountsService()
+    private let bankAccountService: BankAccountsService
+    private var cancellables = Set<AnyCancellable>()
+
     @Published var bankAccount: BankAccount?
     @Published var isLoading = false
     @Published var error: Error?
@@ -18,10 +21,24 @@ final class BalanceViewModel: ObservableObject {
 
     @Published var balanceScreenState: BalanceState = .view
     
-    init() {
-        Task {
-            await loadBankAccountData()
-        }
+    init(bankAccountService: BankAccountsService) {
+        self.bankAccountService = bankAccountService
+        
+        // Подписываемся на изменения bankAccount в BankAccountsService
+        bankAccountService.$bankAccount
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newAccount in
+                self?.bankAccount = newAccount
+                if let currencyString = newAccount?.currency {
+                    self?.currentCurrency = Currency(rawValue: currencyString) ?? .RUB
+                }
+                print("BalanceViewModel received updated bank account: \(newAccount?.balance ?? 0)")
+            }
+            .store(in: &cancellables)
+        
+        // Инициируем первую загрузку данных при создании ViewModel
+        // Убрал initialLoadBankAccountData() отсюда, так как теперь ViewModel создается в корне приложения
+        // и загрузка будет происходить при первом появлении BalanceScreen
     }
 
     func loadBankAccountData() async {
@@ -29,11 +46,7 @@ final class BalanceViewModel: ObservableObject {
         defer { isLoading = false }
         
         do {
-            bankAccount = try await bankAccountService.fetchBankAccount(forceReload: false)
-            if let currencyString = bankAccount?.currency {
-                currentCurrency = Currency(rawValue: currencyString) ?? .RUB
-            }
-            print("Loaded bank account: \(bankAccount?.balance ?? 0)")
+            bankAccount = try await bankAccountService.fetchBankAccount(forceReload: true)
         } catch {
             print("Error loading bank account: \(error)")
             self.error = error
@@ -63,13 +76,8 @@ final class BalanceViewModel: ObservableObject {
                 balance: newBalance,
                 currency: account.currency
             )
-            // ИСПРАВЛЕНО: Обновляем локальный объект сразу после успешного обновления
-            var updatedAccount = account
-            updatedAccount.balance = newBalance
-            updatedAccount.updatedAt = Date()
-            bankAccount = updatedAccount
-            
-            print("Balance updated successfully to: \(newBalance)")
+            // bankAccount будет обновлен через подписку на bankAccountService.$bankAccount
+            print("Balance update initiated successfully to: \(newBalance)")
         } catch {
             print("Error updating balance: \(error)")
             self.error = error
@@ -81,10 +89,11 @@ final class BalanceViewModel: ObservableObject {
         account.currency = newCurrency
         do{
             try await bankAccountService.changeBankAccount(account)
-            bankAccount = account
-            currentCurrency = Currency(rawValue: newCurrency) ?? .RUB
+            // bankAccount будет обновлен через подписку на bankAccountService.$bankAccount
+            print("Currency update initiated successfully to: \(newCurrency)")
         }catch{
             print("Error updating currency: \(error)")
+            self.error = error
         }
     }
     
@@ -114,10 +123,8 @@ final class BalanceViewModel: ObservableObject {
             let transactionModels = transactions.map { $0.toTransaction() }
             try await bankAccountService.recalculateBalance(transactions: transactionModels, categories: categories)
             
-            // Перезагружаем данные аккаунта
-            await loadBankAccountData()
-            
-            print("Balance recalculated successfully")
+            // bankAccount будет обновлен через подписку на bankAccountService.$bankAccount
+            print("Balance recalculation initiated successfully")
         } catch {
             print("Error recalculating balance: \(error)")
             self.error = error

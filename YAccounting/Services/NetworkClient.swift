@@ -113,7 +113,7 @@ final class NetworkClient {
 
 //    func requestTransactionOperation(_ transaction: Transaction, httpMethod: String, isDelete: Bool = false, isCreate: Bool = false) async throws {
 //        let endpoint = isCreate ? "https://shmr-finance.ru/api/v1/transactions" : "https://shmr-finance.ru/api/v1/transactions/\(transaction.id)"
-//        
+//
 //        var request = URLRequest(url: URL(string: endpoint)!)
 //        request.httpMethod = httpMethod
 //        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -121,17 +121,17 @@ final class NetworkClient {
 //        if !isDelete{
 //            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 //        }
-//        
+//
 //        let requestBody = transaction.jsonObject
-//        
+//
 //        do {
 //            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 //        } catch{
 //            throw NetworkError.decodingError(error)
 //        }
-//        
+//
 //        let (_, response) = try await URLSession.shared.data(for: request)
-//        
+//
 //        guard let httpResponse = response as? HTTPURLResponse else {
 //            throw NetworkError.unknown
 //        }

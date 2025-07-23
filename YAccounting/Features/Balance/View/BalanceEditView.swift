@@ -183,7 +183,7 @@ struct BalanceEditView: View {
     }
 }
 #Preview {
-    BalanceEditView(balanceViewModel: BalanceViewModel())
+    BalanceEditView(balanceViewModel: BalanceViewModel(bankAccountService: BankAccountsService()))
         .background(Color(.systemGroupedBackground))
 
 }

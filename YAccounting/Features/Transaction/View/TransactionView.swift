@@ -20,7 +20,7 @@ struct TransactionView: View {
 
     init(viewModel: TransactionViewModel) {
         self._viewModel = StateObject(wrappedValue: viewModel)
-        self._balanceViewModel = StateObject(wrappedValue: BalanceViewModel())
+        self._balanceViewModel = StateObject(wrappedValue: BalanceViewModel(bankAccountService: BankAccountsService()))
     }
 
     var body: some View {
@@ -142,8 +142,8 @@ struct TransactionView: View {
 
             }
         }
-        .task {
-            await balanceViewModel.loadBankAccountData()
-        }
+//        .task {
+//            await balanceViewModel.loadBankAccountData()
+//        }
     }
 }

@@ -9,7 +9,7 @@ import SwiftUI
 import CoreMotion
 
 struct BalanceView: View {
-    @StateObject var balanceViewModel: BalanceViewModel
+    @EnvironmentObject var balanceViewModel: BalanceViewModel
     @StateObject private var spoilerManager = SpoilerAnimationManager()
     @State private var isBalanceHidden = false
     private let motionManager = CMMotionManager()
@@ -123,6 +123,8 @@ struct BalanceView: View {
 }
 
 #Preview {
-    BalanceView(balanceViewModel: BalanceViewModel())
+    BalanceView()
+        .environmentObject(BalanceViewModel(bankAccountService: BankAccountsService()))
 }
+
 

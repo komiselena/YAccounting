@@ -55,6 +55,8 @@ struct MainTabView: View {
                             }
                             
                         }
+                        .environmentObject(BalanceViewModel(bankAccountService: BankAccountsService()))
+
                     
                     
                     StatesView()

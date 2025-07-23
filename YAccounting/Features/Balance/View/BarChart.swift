@@ -25,6 +25,6 @@ struct BarChart: View {
     }
 }
 
-#Preview {
-    BarChart(balanceViewModel: BalanceViewModel())
-}
+//#Preview {
+//    BarChart(balanceViewModel: BalanceViewModel())
+//}

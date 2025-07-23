@@ -8,11 +8,7 @@
 import SwiftUI
 
 struct BalanceScreen: View {
-    @StateObject var balanceViewModel: BalanceViewModel
-    
-    init() {
-        self._balanceViewModel = StateObject(wrappedValue: BalanceViewModel())
-    }
+    @EnvironmentObject var balanceViewModel: BalanceViewModel
     
     var body: some View {
         NavigationStack{
@@ -21,7 +17,7 @@ struct BalanceScreen: View {
                 case .edit:
                     BalanceEditView(balanceViewModel: balanceViewModel)
                 case .view:
-                    BalanceView(balanceViewModel: balanceViewModel)
+                    BalanceView(balanceViewModel: _balanceViewModel)
                     
                 }
             }
@@ -44,13 +40,15 @@ struct BalanceScreen: View {
             
             .navigationTitle("Мой счет")
         }
+        .task { 
+            await balanceViewModel.loadBankAccountData()
+        }
     }
-    
-    
 }
 
 #Preview {
     BalanceScreen()
+        .environmentObject(BalanceViewModel(bankAccountService: BankAccountsService()))
 }
 
 

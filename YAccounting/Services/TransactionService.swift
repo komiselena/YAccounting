@@ -43,12 +43,15 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         if !NetworkStatusMonitor.shared.isConnected {
             
             let localTransactions = try await storage.fetchTransactions(for: period)
-            return try await localTransactions.concurrentMap { transaction in
-                let account = try await self.accountsService.fetchBankAccount(forceReload: false)
-                let category = try await self.categoriesService.categories().first(where: { $0.id == transaction.categoryId })
+            // Получаем данные аккаунта и категории один раз, чтобы не делать повторных запросов
+            let account = try await self.accountsService.fetchBankAccount(forceReload: false)
+            let categories = try await self.categoriesService.categories()
+
+            return localTransactions.map { transaction in
+                let category = categories.first(where: { $0.id == transaction.categoryId }) ?? Category(id: 0, name: "Uncategorized", emoji: "🔎", isIncome: false)
                 return transaction.toTransactionResponse(
                     account: Account(id: account.id, name: account.name, balance: NSDecimalNumber(decimal: account.balance).stringValue, currency: account.currency),
-                    category: category ?? Category(id: 0, name: "Uncategorized", emoji: "🔎", isIncome: false)
+                    category: category
                 )
             }
         }
@@ -62,8 +65,8 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let serverResponses = try await client.request(endpoint: endpoint) as [TransactionResponse]
             try await saveNewTransactions(serverResponses)
             
-            // НОВОЕ: Пересчитываем баланс после получения транзакций с сервера
-            try await recalculateAccountBalance()
+            // УДАЛЕНО: Пересчет баланса после получения транзакций с сервера
+            // try await recalculateAccountBalance()
             
             return serverResponses
         } catch {
@@ -72,12 +75,15 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let combined = (localTransactions + backupTransactions)
             let uniqueTransactions = combined.unique(by: \.id)
             
-            return try await uniqueTransactions.concurrentMap { transaction in
-                let account = try await self.accountsService.fetchBankAccount(forceReload: false)
-                let category = try await self.categoriesService.categories().first(where: { $0.id == transaction.categoryId })
+            // Оптимизация: одно обращение к сервисам вместо нескольких
+            let account = try await self.accountsService.fetchBankAccount(forceReload: false)
+            let categories = try await self.categoriesService.categories()
+
+            return uniqueTransactions.map { transaction in
+                let category = categories.first(where: { $0.id == transaction.categoryId }) ?? Category(id: 0, name: "Uncategorized", emoji: "🔎", isIncome: false)
                 return transaction.toTransactionResponse(
                     account: Account(id: account.id, name: account.name, balance: NSDecimalNumber(decimal: account.balance).stringValue, currency: account.currency),
-                    category: category ?? Category(id: 0, name: "Uncategorized", emoji: "🔎", isIncome: false)
+                    category: category
                 )
             }
         }
@@ -85,7 +91,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
     
     // НОВЫЙ МЕТОД: Пересчет баланса аккаунта на основе всех транзакций
     private func recalculateAccountBalance() async throws {
-        let bankAccount = try await accountsService.fetchBankAccount(forceReload: false)
+        let bankAccount = try await accountsService.fetchBankAccount(forceReload: true) // Force reload to get latest from server
         
         // Получаем все транзакции для данного аккаунта
         let allTransactions = try await storage.fetchAllTransactions()
@@ -166,7 +172,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             try await storage.createTransaction(response)
             try? await backupStorage.deleteTransaction(id: transaction.id)
             if !isSync {
-                NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
+                NotificationCenter.default.post(name: .transactionsUpdated, object: nil) // Пересчет баланса убран, чтобы исключить двойное обновление
             }
         } catch {
             if error.isNetworkError {
@@ -218,7 +224,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             try await storage.editTransaction(transaction)
             try? await backupStorage.deleteTransaction(id: transaction.id)
             if !isSync {
-                NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
+                NotificationCenter.default.post(name: .transactionsUpdated, object: nil) // Пересчет баланса убран, чтобы исключить двойное обновление
             }
         } catch {
             try await backupStorage.editTransaction(transaction)
@@ -251,7 +257,10 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             
             try await storage.deleteTransaction(id: id)
             try? await backupStorage.deleteTransaction(id: id)
-            NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
+//            if !isSync {
+//                NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
+//                try await recalculateAccountBalance() // Recalculate balance after successful deletion
+//            }
         } catch {
             if error.isNetworkError {
                 // В случае сетевой ошибки все равно обновляем локальный баланс
@@ -312,5 +321,4 @@ extension Error {
         ].contains(nsError.code)
     }
 }
-
 
