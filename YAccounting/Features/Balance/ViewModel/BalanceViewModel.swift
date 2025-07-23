@@ -18,26 +18,18 @@ final class BalanceViewModel: ObservableObject {
 
     @Published var balanceScreenState: BalanceState = .view
     
-    
-//    init() {
-//        NotificationCenter.default.addObserver(
-//            self,
-//            selector: #selector(handleTransactionsUpdate),
-//            name: .transactionsUpdated,
-//            object: nil
-//        )
-//    }
-    
-//    @objc private func handleTransactionsUpdate() {
-//        Task { await loadBankAccountData() }
-//    }
+    init() {
+        Task {
+            await loadBankAccountData()
+        }
+    }
 
     func loadBankAccountData() async {
         isLoading = true
         defer { isLoading = false }
         
         do {
-            bankAccount = try await bankAccountService.fetchBankAccount()
+            bankAccount = try await bankAccountService.fetchBankAccount(forceReload: false)
             if let currencyString = bankAccount?.currency {
                 currentCurrency = Currency(rawValue: currencyString) ?? .RUB
             }
@@ -132,4 +124,5 @@ final class BalanceViewModel: ObservableObject {
         }
     }
 }
+
 

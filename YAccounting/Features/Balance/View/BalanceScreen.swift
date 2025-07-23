@@ -44,9 +44,6 @@ struct BalanceScreen: View {
             
             .navigationTitle("Мой счет")
         }
-        .task{
-            await balanceViewModel.loadBankAccountData()
-        }
     }
     
     
@@ -55,3 +52,5 @@ struct BalanceScreen: View {
 #Preview {
     BalanceScreen()
 }
+
+

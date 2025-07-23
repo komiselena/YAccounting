@@ -32,7 +32,13 @@ final class BankAccountsService: BankAccountsServiceProtocol {
     
     var bankAccount: BankAccount?
     
-    func fetchBankAccount() async throws -> BankAccount {
+    func fetchBankAccount(forceReload: Bool) async throws -> BankAccount {
+        if !forceReload, let localAccount = try? storage.fetchBankAccount() {
+            print("Загружаем из SwiftData: \(localAccount)")
+            bankAccount = localAccount
+            return localAccount
+        }
+        
         do {
             let bankAccounts: [BankAccount] = try await client.request(endpoint: "api/v1/accounts", method: "GET")
             let selectedAccount = bankAccounts.first ?? mockBankAccount
@@ -67,7 +73,7 @@ final class BankAccountsService: BankAccountsServiceProtocol {
     }
     
     func updateBankAccount(name: String, balance: Decimal, currency: String) async throws {
-        var account = try await fetchBankAccount()
+        var account = try await fetchBankAccount(forceReload: false)
         account.name = name
         account.balance = balance
         account.currency = currency
@@ -107,11 +113,10 @@ final class BankAccountsService: BankAccountsServiceProtocol {
     
     // НОВЫЙ МЕТОД: Пересчет баланса на основе всех транзакций
     func recalculateBalance(transactions: [Transaction], categories: [Category]) async throws {
-        var account = try await fetchBankAccount()
+        var account = try await fetchBankAccount(forceReload: false)
         
-        // ИСПРАВЛЕНО: Начинаем с нулевого баланса для полного пересчета
-        // Или можно использовать начальный баланс, если он задан
-        let initialBalance: Decimal = 0 // Можно изменить на account.balance если нужно сохранить начальный баланс
+        // ИСПРАВЛЕНО: Начинаем с текущего баланса аккаунта для полного пересчета
+        let initialBalance: Decimal = account.balance
         
         // Вычисляем итоговый баланс на основе всех транзакций
         let calculatedBalance = transactions.reduce(initialBalance) { currentBalance, transaction in
@@ -143,7 +148,7 @@ final class BankAccountsService: BankAccountsServiceProtocol {
     
     // УПРОЩЕННЫЙ МЕТОД: Обновление баланса для одной транзакции
     func updateBalanceForTransaction(_ transaction: Transaction, category: Category, isAdding: Bool) async throws {
-        var account = try await fetchBankAccount()
+        var account = try await fetchBankAccount(forceReload: false)
         
         guard let transactionAmount = Decimal(string: transaction.amount, locale: Locale(identifier: "en_US")) else {
             throw NSError(domain: "Invalid transaction amount format", code: 0)
@@ -169,4 +174,5 @@ final class BankAccountsService: BankAccountsServiceProtocol {
         )
     }
 }
+
 

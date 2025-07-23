@@ -44,7 +44,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             
             let localTransactions = try await storage.fetchTransactions(for: period)
             return try await localTransactions.concurrentMap { transaction in
-                let account = try await self.accountsService.fetchBankAccount()
+                let account = try await self.accountsService.fetchBankAccount(forceReload: false)
                 let category = try await self.categoriesService.categories().first(where: { $0.id == transaction.categoryId })
                 return transaction.toTransactionResponse(
                     account: Account(id: account.id, name: account.name, balance: NSDecimalNumber(decimal: account.balance).stringValue, currency: account.currency),
@@ -55,7 +55,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
         
         try await syncBackupTransactions()
         
-        let bankAccount = try await accountsService.fetchBankAccount()
+        let bankAccount = try await accountsService.fetchBankAccount(forceReload: false)
         
         do {
             let endpoint = "api/v1/transactions/account/\(bankAccount.id)/period?startDate=\(period.lowerBound.formatPeriod())&endDate=\(period.upperBound.formatPeriod())"
@@ -73,7 +73,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let uniqueTransactions = combined.unique(by: \.id)
             
             return try await uniqueTransactions.concurrentMap { transaction in
-                let account = try await self.accountsService.fetchBankAccount()
+                let account = try await self.accountsService.fetchBankAccount(forceReload: false)
                 let category = try await self.categoriesService.categories().first(where: { $0.id == transaction.categoryId })
                 return transaction.toTransactionResponse(
                     account: Account(id: account.id, name: account.name, balance: NSDecimalNumber(decimal: account.balance).stringValue, currency: account.currency),
@@ -85,7 +85,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
     
     // НОВЫЙ МЕТОД: Пересчет баланса аккаунта на основе всех транзакций
     private func recalculateAccountBalance() async throws {
-        let bankAccount = try await accountsService.fetchBankAccount()
+        let bankAccount = try await accountsService.fetchBankAccount(forceReload: false)
         
         // Получаем все транзакции для данного аккаунта
         let allTransactions = try await storage.fetchAllTransactions()
@@ -140,7 +140,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
     }
     
     func createTransaction(_ transaction: Transaction, isSync: Bool = false) async throws {
-        let bankAccount = try await accountsService.fetchBankAccount()
+        let bankAccount = try await accountsService.fetchBankAccount(forceReload: false)
         
         do {
             if !NetworkStatusMonitor.shared.isConnected {
@@ -190,7 +190,7 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
     }
 
     func editTransaction(_ transaction: Transaction, isSync: Bool = false) async throws {
-        let bankAccount = try await accountsService.fetchBankAccount()
+        let bankAccount = try await accountsService.fetchBankAccount(forceReload: false)
         
         let oldTransaction = try? await storage.fetchTransaction(id: transaction.id)
         let oldCategory = oldTransaction != nil ? try? await categoriesService.categories().first(where: { $0.id == oldTransaction!.categoryId }) : nil
@@ -312,4 +312,5 @@ extension Error {
         ].contains(nsError.code)
     }
 }
+
 
