@@ -156,7 +156,6 @@ final class TransactionService: ObservableObject, @unchecked Sendable {
             let amountDecimal = Decimal(string: transaction.amount) ?? 0
             let categories = try await categoriesService.categories()
             let cat = categories.first(where: { $0.id == transaction.categoryId })
-            // Исправлено: для расходов сумма должна быть отрицательной
             let signedAmount = cat?.isIncome == true ? amountDecimal : -amountDecimal
             let delta = signedAmount
 
