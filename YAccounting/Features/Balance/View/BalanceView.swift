@@ -21,8 +21,8 @@ struct BalanceView: View {
                 balance()
                 currency()
                 
-                BarChart(balanceViewModel: balanceViewModel)
-                
+//                BarChart(balanceViewModel: balanceViewModel)
+                BalanceHistoryChart(balanceViewModel: balanceViewModel)
                 Spacer()
             }
             .padding(.vertical)
