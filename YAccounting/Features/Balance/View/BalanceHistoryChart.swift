@@ -60,7 +60,7 @@ struct BalanceHistoryChart: View {
                             BarMark(
                                 x: .value("Дата", entry.date, unit: selectedTimeRange == .days30 ? .day : .month),
                                 yStart: .value("Начало", 0),
-                                yEnd: .value("Конец", abs(entry.balance) > 0 ? abs(entry.balance) : (selectedTimeRange == .days30 ? 100000 : 10000)),
+                                yEnd: .value("Конец", abs(entry.balance) > 0 ? abs(entry.balance) : (selectedTimeRange == .days30 ? 100000 : 3000)),
                                 width: .fixed(selectedTimeRange == .days30 ? 8 : 16)
                             )
                             .foregroundStyle(
