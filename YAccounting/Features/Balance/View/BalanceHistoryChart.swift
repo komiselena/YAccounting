@@ -21,6 +21,28 @@ struct BalanceHistoryChart: View {
         case months24 = "24 месяца"
     }
     
+    private var dateRange30Days: [Date] {
+        let calendar = Calendar.current
+        let now = Date()
+        let rangeEnd = calendar.startOfDay(for: now)
+        let rangeStart = calendar.date(byAdding: .day, value: -29, to: rangeEnd)!
+        
+        return (0..<30).map { offset in
+            calendar.date(byAdding: .day, value: offset, to: rangeStart)!
+        }
+    }
+    
+    private var dateRange24Months: [Date] {
+        let calendar = Calendar.current
+        let now = Date()
+        let rangeEnd = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
+        let rangeStart = calendar.date(byAdding: .month, value: -23, to: rangeEnd)!
+        
+        return (0..<24).map { offset in
+            calendar.date(byAdding: .month, value: offset, to: rangeStart)!
+        }
+    }
+
     var body: some View {
         VStack {
             if !isEditing {
@@ -37,55 +59,68 @@ struct BalanceHistoryChart: View {
                         ForEach(processedHistoryEntries(historyData), id: \.date) { entry in
                             BarMark(
                                 x: .value("Дата", entry.date, unit: selectedTimeRange == .days30 ? .day : .month),
-                                y: .value("Баланс", entry.balance.doubleValue)
+                                yStart: .value("Начало", 0),
+                                yEnd: .value("Конец", abs(entry.balance) > 0 ? abs(entry.balance) : (selectedTimeRange == .days30 ? 100000 : 10000)),
+                                width: .fixed(selectedTimeRange == .days30 ? 8 : 16)
                             )
-                            .foregroundStyle(entry.balance >= 0 ? Color.green : Color.red)
-                            .opacity(selectedBalance?.date == entry.date ? 1 : 0.7)
+                            .foregroundStyle(
+                                entry.balance == 0 ? Color.gray.opacity(0.2) : (entry.balance > 0 ? Color.green : Color.red)
+                            )
+                            .cornerRadius(4)
                         }
                         
                         if let selectedBalance {
                             RuleMark(x: .value("Дата", selectedBalance.date))
                                 .annotation(position: .top) {
                                     VStack {
-                                        Text("\(selectedBalance.date.formatted(date: .abbreviated, time: .omitted))")
+                                        Text(selectedTimeRange == .days30 ?
+                                             selectedBalance.date.formatted(date: .abbreviated, time: .omitted) :
+                                             selectedBalance.date.formatted(.dateTime.year().month()))
                                         Text("\(formattedBalance(selectedBalance.balance))")
                                             .fontWeight(.bold)
                                     }
-                                    .padding()
+                                    .padding(8)
                                     .background(Color(.systemBackground))
-                                    .cornerRadius(8)
+                                    .cornerRadius(10)
                                     .shadow(radius: 4)
+                                    .fixedSize()
                                 }
                         }
                     }
+                    .chartXScale(domain: selectedTimeRange == .days30 ?
+                                dateRange30Days.first!...dateRange30Days.last! :
+                                dateRange24Months.first!...dateRange24Months.last!)
                     .chartXAxis {
-                        AxisMarks(values: .stride(by: selectedTimeRange == .days30 ? .day : .month)) { value in
-                            AxisGridLine()
-                            AxisTick()
-                            AxisValueLabel(format: selectedTimeRange == .days30 ? .dateTime.day() : .dateTime.month(.abbreviated))
+                        AxisMarks(values: .stride(by: selectedTimeRange == .days30 ? .day : .month,
+                                                count: selectedTimeRange == .days30 ? 5 : 8)) { value in
+                            if let date = value.as(Date.self) {
+                                AxisValueLabel {
+                                    if selectedTimeRange == .days30 {
+                                        Text(date.formatted(.dateTime.day().month()))
+                                    } else {
+                                        Text(date.formatted(.dateTime.year().month()))
+                                            .font(.system(size: 10))
+                                    }
+                                }
+                            }
                         }
                     }
-                    .chartYAxis {
-                        AxisMarks(position: .leading)
-                    }
+                    .chartYAxis(.hidden)
                     .chartOverlay { proxy in
                         GeometryReader { geometry in
                             Rectangle().fill(.clear).contentShape(Rectangle())
                                 .gesture(
-                                    DragGesture()
+                                    DragGesture(minimumDistance: 0)
                                         .onChanged { value in
-                                            let xPosition = value.location.x - geometry[proxy.plotAreaFrame].origin.x
-                                            guard let date: Date = proxy.value(atX: xPosition) else { return }
+                                            let xPosition = min(max(value.location.x, 0), geometry.size.width)
+                                            let date = proxy.value(atX: xPosition, as: Date.self) ?? Date()
                                             
                                             let calendar = Calendar.current
-                                            let foundEntry = processedHistoryEntries(historyData).first { entry in
-                                                if selectedTimeRange == .days30 {
-                                                    return calendar.isDate(entry.date, inSameDayAs: date)
-                                                } else {
-                                                    return calendar.isDate(entry.date, equalTo: date, toGranularity: .month)
-                                                }
+                                            if let foundEntry = processedHistoryEntries(historyData).first(where: {
+                                                calendar.isDate($0.date, inSameDayAs: date)
+                                            }) {
+                                                self.selectedBalance = foundEntry
                                             }
-                                            self.selectedBalance = foundEntry
                                         }
                                         .onEnded { _ in
                                             selectedBalance = nil
@@ -93,7 +128,7 @@ struct BalanceHistoryChart: View {
                                 )
                         }
                     }
-                    .frame(height: 300)
+                    .frame(height: 200)
                     .padding()
                     .animation(.easeInOut, value: selectedTimeRange)
                 } else {
@@ -129,38 +164,60 @@ struct BalanceHistoryChart: View {
     private func processedHistoryEntries(_ history: BankAccountHistory) -> [BalanceEntry] {
         let calendar = Calendar.current
         let now = Date()
-        let rangeEnd = now
-        let rangeStart: Date
         
         if selectedTimeRange == .days30 {
-            rangeStart = calendar.date(byAdding: .day, value: -30, to: now)!
+            let rangeEnd = calendar.startOfDay(for: now)
+            let rangeStart = calendar.date(byAdding: .day, value: -29, to: rangeEnd)!
+            
+            let dateRange = (0..<30).map { offset in
+                calendar.date(byAdding: .day, value: offset, to: rangeStart)!
+            }
+            
+            var historyDict: [Date: Decimal] = [:]
+            dateRange.forEach { date in
+                historyDict[date] = 0
+            }
+            
+            for item in history.history {
+                let d = calendar.startOfDay(for: item.changeTimestamp)
+                if d >= rangeStart && d <= rangeEnd {
+                    historyDict[d] = item.newState?.balance
+                }
+            }
+            
+            return dateRange.map { date in
+                BalanceEntry(date: date, balance: historyDict[date] ?? 0)
+            }
         } else {
-            rangeStart = calendar.date(byAdding: .month, value: -24, to: now)!
-        }
-        
-        var balanceByPeriod: [Date: Decimal] = [:]
-        
-        for historyItem in history.history {
-            let date = historyItem.changeTimestamp
-            let periodDate: Date
+            let rangeEnd = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
+            let rangeStart = calendar.date(byAdding: .month, value: -23, to: rangeEnd)!
             
-            if selectedTimeRange == .days30 {
-                periodDate = calendar.startOfDay(for: date)
-            } else {
-                let components = calendar.dateComponents([.year, .month], from: date)
-                periodDate = calendar.date(from: components)!
+            let dateRange = (0..<24).map { offset in
+                calendar.date(byAdding: .month, value: offset, to: rangeStart)!
             }
             
-            if rangeStart...rangeEnd ~= periodDate {
-                balanceByPeriod[periodDate] = historyItem.newState?.balance
+            var monthlyBalances: [Date: Decimal] = [:]
+            
+            dateRange.forEach { date in
+                monthlyBalances[date] = 0
+            }
+            
+            for item in history.history {
+                let components = calendar.dateComponents([.year, .month], from: item.changeTimestamp)
+                if let monthStart = calendar.date(from: components),
+                   monthStart >= rangeStart && monthStart <= rangeEnd {
+                    monthlyBalances[monthStart] = item.newState?.balance ?? monthlyBalances[monthStart] ?? 0
+                }
+            }
+            
+            var previousBalance: Decimal = 0
+            return dateRange.map { date in
+                let currentBalance = monthlyBalances[date] ?? previousBalance
+                previousBalance = currentBalance
+                return BalanceEntry(date: date, balance: currentBalance)
             }
         }
-        
-        return balanceByPeriod.map { date, balance in
-            BalanceEntry(date: date, balance: balance)
-        }.sorted { $0.date < $1.date }
     }
-    
     private func formattedBalance(_ value: Decimal) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency

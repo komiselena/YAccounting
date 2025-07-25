@@ -20,8 +20,6 @@ struct BalanceView: View {
             VStack(spacing: 15) {
                 balance()
                 currency()
-                
-//                BarChart(balanceViewModel: balanceViewModel)
                 BalanceHistoryChart(balanceViewModel: balanceViewModel)
                 Spacer()
             }
