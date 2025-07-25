@@ -6,19 +6,16 @@
 //
 
 import UIKit
+import PieChart
 
 class AnalysisViewController: UIViewController {
     private var startDate: Date = Date()
     private var endDate: Date = Date()
 
     private let allTransactions: [Transaction]
-
     private let categories: [Category]
-
     private var transactions: [Transaction] = []
-
     private var sortedBy: SortOption = .byDate
-
 
     init(transactions: [Transaction], categories: [Category]) {
         self.allTransactions = transactions
@@ -36,6 +33,37 @@ class AnalysisViewController: UIViewController {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+    
+    // MARK: - UI Components
+    
+    private lazy var scrollView: UIScrollView = {
+        let scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.showsVerticalScrollIndicator = true
+        return scrollView
+    }()
+    
+    private lazy var contentView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
+    private lazy var pieChartView: PieChartView = {
+        let view = PieChartView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
+    private lazy var chartContainer: UIView = {
+        let view = UIView()
+        view.backgroundColor = .systemBackground
+        view.layer.cornerRadius = 16
+        view.layer.masksToBounds = true
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
     
     private lazy var backButton: UIBarButtonItem = {
         let button = UIBarButtonItem(
@@ -60,7 +88,6 @@ class AnalysisViewController: UIViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
-
     
     private lazy var periodView: UIView = {
         let view = UIView()
@@ -168,9 +195,6 @@ class AnalysisViewController: UIViewController {
         title = "Анализ"
         navigationItem.leftBarButtonItem = backButton
         navigationItem.rightBarButtonItem = sortButton
-        
-        navigationController?.navigationBar.setNeedsLayout()
-        navigationController?.navigationBar.layoutIfNeeded()
     }
     
     private func setupUI() {
@@ -179,7 +203,18 @@ class AnalysisViewController: UIViewController {
         startDateButton.setTitle(formatDate(startDate), for: .normal)
         endDateButton.setTitle(formatDate(endDate), for: .normal)
         
-        view.addSubview(periodView)
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+        
+        contentView.addSubview(periodView)
+        contentView.addSubview(chartContainer)
+        chartContainer.addSubview(pieChartView)
+        contentView.addSubview(operationsLabel)
+        contentView.addSubview(operationsContainer)
+        operationsContainer.addSubview(tableView)
+        
+        chartContainer.backgroundColor = .clear
+
         
         let verticalStack = UIStackView()
         verticalStack.axis = .vertical
@@ -192,16 +227,13 @@ class AnalysisViewController: UIViewController {
         sortTitle.text = "Сортировка"
         sortTitle.font = .systemFont(ofSize: 16)
         
-        sortValueLabel.text = sortedBy == .byDate ? "По дате" : "По сумме" // Используем свойство
+        sortValueLabel.text = sortedBy == .byDate ? "По дате" : "По сумме"
         
         let sortRow = makeRow(titleLabel: sortTitle, valueView: sortValueLabel, isLast: false)
-
-        
         let sortTap = UITapGestureRecognizer(target: self, action: #selector(showSortOptions))
         sortRow.addGestureRecognizer(sortTap)
         sortRow.isUserInteractionEnabled = true
 
-        
         let startRow = makeRow(titleLabel: startLabel, valueView: startDateButton, isLast: false)
         let endRow = makeRow(titleLabel: endLabel, valueView: endDateButton, isLast: false)
         let sumTitle = UILabel()
@@ -209,86 +241,80 @@ class AnalysisViewController: UIViewController {
         sumTitle.font = .systemFont(ofSize: 16)
         let sumRow = makeRow(titleLabel: sumTitle, valueView: amountLabel, isLast: true)
         
-        
+        chartContainer.backgroundColor = .clear
+        pieChartView.backgroundColor = .clear
+
         [startRow, endRow, sortRow, sumRow].forEach { verticalStack.addArrangedSubview($0) }
         
-        periodView.backgroundColor = .systemBackground
         periodView.addSubview(verticalStack)
-        
-        view.addSubview(operationsLabel)
-        view.addSubview(operationsContainer)
-        operationsContainer.addSubview(tableView)
         
         NSLayoutConstraint.activate([
             verticalStack.topAnchor.constraint(equalTo: periodView.topAnchor, constant: 16),
             verticalStack.leadingAnchor.constraint(equalTo: periodView.leadingAnchor, constant: 16),
             verticalStack.trailingAnchor.constraint(equalTo: periodView.trailingAnchor, constant: -16),
             verticalStack.bottomAnchor.constraint(equalTo: periodView.bottomAnchor, constant: -16),
-            
-            operationsLabel.topAnchor.constraint(equalTo: periodView.bottomAnchor, constant: 24),
-            operationsLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            
-            operationsContainer.topAnchor.constraint(equalTo: operationsLabel.bottomAnchor, constant: 8),
-            operationsContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            operationsContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            operationsContainer.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor),
-            
-            tableView.topAnchor.constraint(equalTo: operationsContainer.topAnchor),
-            tableView.leadingAnchor.constraint(equalTo: operationsContainer.leadingAnchor),
-            tableView.trailingAnchor.constraint(equalTo: operationsContainer.trailingAnchor)
         ])
-        
-        tableHeightConstraint = tableView.heightAnchor.constraint(equalToConstant: 0)
-        tableHeightConstraint?.isActive = true
-        operationsContainer.bottomAnchor.constraint(equalTo: tableView.bottomAnchor).isActive = true
-    }
-
-    @objc private func showSortOptions() {
-        let pickerVC = SortPickerViewController()
-        pickerVC.selectedOption = sortedBy
-        pickerVC.modalPresentationStyle = .overCurrentContext
-        pickerVC.modalTransitionStyle = .crossDissolve
-        
-        pickerVC.completion = { [weak self] option in
-            self?.sortedBy = option
-            self?.sortTransactions()
-        }
-        
-        present(pickerVC, animated: true)
-    }
-    private func sortTransactions() {
-        switch sortedBy {
-        case .byDate:
-            transactions.sort { $0.transactionDate > $1.transactionDate }
-        case .byAmount:
-            transactions.sort { $0.amount > $1.amount }
-        }
-        tableView.reloadData()
-        tableView.layoutIfNeeded()
-        tableHeightConstraint?.constant = tableView.contentSize.height
-        
-        sortValueLabel.text = sortedBy == .byDate ? "По дате" : "По сумме"
     }
 
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            periodView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            periodView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            periodView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            operationsLabel.topAnchor.constraint(equalTo: periodView.bottomAnchor, constant: 24),
-            operationsLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+            
+            periodView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            periodView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            periodView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            
+            chartContainer.topAnchor.constraint(equalTo: periodView.bottomAnchor, constant: 16),
+            chartContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            chartContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            chartContainer.heightAnchor.constraint(equalToConstant: 300),
+
+            pieChartView.topAnchor.constraint(equalTo: chartContainer.topAnchor, constant: 8),
+            pieChartView.leadingAnchor.constraint(equalTo: chartContainer.leadingAnchor, constant: 8),
+            pieChartView.trailingAnchor.constraint(equalTo: chartContainer.trailingAnchor, constant: -8),
+            pieChartView.bottomAnchor.constraint(equalTo: chartContainer.bottomAnchor, constant: -8),
+            
+            operationsLabel.topAnchor.constraint(equalTo: chartContainer.bottomAnchor, constant: 16),
+            operationsLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            operationsLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -16),
             
             operationsContainer.topAnchor.constraint(equalTo: operationsLabel.bottomAnchor, constant: 8),
-            operationsContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            operationsContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            operationsContainer.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor),
+            operationsContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            operationsContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            operationsContainer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
             
             tableView.topAnchor.constraint(equalTo: operationsContainer.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: operationsContainer.leadingAnchor),
-            tableView.trailingAnchor.constraint(equalTo: operationsContainer.trailingAnchor)
+            tableView.trailingAnchor.constraint(equalTo: operationsContainer.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: operationsContainer.bottomAnchor)
         ])
+        
+        tableHeightConstraint = tableView.heightAnchor.constraint(equalToConstant: 0)
+        tableHeightConstraint?.isActive = true
     }
+
+    private func filterAndReload() {
+        transactions = allTransactions.filter { $0.transactionDate >= startDate && $0.transactionDate <= endDate }
+        updateTotalAmount()
+        updatePieChartData()
+        sortTransactions()
+        
+        DispatchQueue.main.async {
+            self.tableView.layoutIfNeeded()
+            self.tableHeightConstraint?.constant = self.tableView.contentSize.height
+        }
+    }
+
+    // MARK: - Actions
     
     @objc private func backButtonTapped() {
         navigationController?.popViewController(animated: true)
@@ -318,6 +344,34 @@ class AnalysisViewController: UIViewController {
     
     @objc private func selectEndDate() {
         showSwiftUIStyleDatePicker(isStart: false)
+    }
+    
+    @objc private func showSortOptions() {
+        let pickerVC = SortPickerViewController()
+        pickerVC.selectedOption = sortedBy
+        pickerVC.modalPresentationStyle = .overCurrentContext
+        pickerVC.modalTransitionStyle = .crossDissolve
+        
+        pickerVC.completion = { [weak self] option in
+            self?.sortedBy = option
+            self?.sortTransactions()
+        }
+        
+        present(pickerVC, animated: true)
+    }
+    
+    private func sortTransactions() {
+        switch sortedBy {
+        case .byDate:
+            transactions.sort { $0.transactionDate > $1.transactionDate }
+        case .byAmount:
+            transactions.sort { $0.amount > $1.amount }
+        }
+        tableView.reloadData()
+        tableView.layoutIfNeeded()
+        tableHeightConstraint?.constant = tableView.contentSize.height
+        
+        sortValueLabel.text = sortedBy == .byDate ? "По дате" : "По сумме"
     }
     
     private func showSwiftUIStyleDatePicker(isStart: Bool) {
@@ -356,12 +410,44 @@ class AnalysisViewController: UIViewController {
         
         present(datePickerVC, animated: true)
     }
-    private func filterAndReload() {
-        transactions = allTransactions.filter { $0.transactionDate >= startDate && $0.transactionDate <= endDate }
-        updateTotalAmount()
-        sortTransactions()
+    
+    // MARK: - Helpers
+    
+    private func updatePieChartData() {
+        var categoryTotals: [String: Decimal] = [:]
+        
+        for transaction in transactions {
+            if let category = categories.first(where: { $0.id == transaction.categoryId }),
+               let amount = Decimal(string: transaction.amount) {
+                categoryTotals[category.name, default: 0] += amount
+            }
+        }
+        
+        let sortedCategories = categoryTotals.sorted { $0.value > $1.value }
+        let chartData = sortedCategories.map { PieChartEntity(value: $0.value, label: $0.key) }
+        
+        animatePieChartUpdate(with: chartData)
     }
     
+    private func animatePieChartUpdate(with newData: [PieChartEntity]) {
+        let oldTransform = pieChartView.transform
+        let oldAlpha = pieChartView.alpha
+        
+        UIView.animate(withDuration: 0.5, delay: 0, options: [.curveEaseIn], animations: {
+            self.pieChartView.transform = oldTransform.rotated(by: .pi)
+            self.pieChartView.alpha = 0
+        }, completion: { _ in
+            self.pieChartView.entities = newData
+            self.pieChartView.transform = oldTransform.rotated(by: .pi)
+            
+            UIView.animate(withDuration: 0.5, delay: 0, options: [.curveEaseOut], animations: {
+                self.pieChartView.transform = oldTransform.rotated(by: 2 * .pi)
+                self.pieChartView.alpha = 1
+            }, completion: { _ in
+                self.pieChartView.transform = oldTransform
+            })
+        })
+    }
     private func updateTotalAmount() {
         var totalAmount: Decimal {
             transactions.reduce(Decimal.zero) { result, transaction in
@@ -389,9 +475,10 @@ class AnalysisViewController: UIViewController {
         formatter.maximumFractionDigits = 2
         return formatter.string(from: amount as NSDecimalNumber) ?? "\(amount)"
     }
+    
 }
 
-
+// MARK: - UITableViewDataSource, UITableViewDelegate
 
 extension AnalysisViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -423,5 +510,3 @@ extension AnalysisViewController: UITableViewDataSource, UITableViewDelegate {
         return cell
     }
 }
-
-

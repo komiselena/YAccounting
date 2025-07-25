@@ -87,6 +87,18 @@ final class BalanceViewModel: ObservableObject {
         }
     }
     
+    func fetchHistory() async throws -> BankAccountHistory? {
+        guard var account = bankAccount else { throw NetworkError.notFound }
+        do{
+            return try await bankAccountService.fetchBankAccountHistory(id: account.id)
+        }catch{
+            print("Error fetching bank account history: \(error)")
+            self.error = error
+            throw error
+        }
+
+    }
+    
 //    func recalculateBalance() async {
 //        isLoading = true
 //        defer { isLoading = false }

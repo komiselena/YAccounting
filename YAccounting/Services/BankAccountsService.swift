@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 
 @MainActor
-final class BankAccountsService: BankAccountsServiceProtocol {
+final class BankAccountsService: @preconcurrency BankAccountsServiceProtocol {
     
     static let shared: BankAccountsService = BankAccountsService()
     
@@ -134,42 +134,6 @@ final class BankAccountsService: BankAccountsServiceProtocol {
         }
     }
     
-//    func recalculateBalance(transactions: [Transaction], categories: [Category]) async throws {
-//        guard var bankAccount = self.bankAccount else {
-//            bankAccount = try await fetchBankAccount(forceReload: false)
-//            return
-//        }
-//        
-//        // Начинаем с текущего баланса аккаунта для полного пересчета
-//        let initialBalance: Decimal = bankAccount.balance
-//        
-//        // Вычисляем итоговый баланс на основе всех транзакций
-//        let calculatedBalance = transactions.reduce(initialBalance) { currentBalance, transaction in
-//            guard let category = categories.first(where: { $0.id == transaction.categoryId }),
-//                  let transactionAmount = Decimal(string: transaction.amount, locale: Locale(identifier: "en_US")) else {
-//                print("Warning: Could not process transaction \(transaction.id)")
-//                return currentBalance
-//            }
-//            
-//            let newBalance = category.isIncome
-//                ? currentBalance + transactionAmount
-//                : currentBalance - transactionAmount
-//            
-//            print("Transaction \(transaction.id): \(category.isIncome ? "+" : "-")\(transactionAmount) = \(newBalance)")
-//            return newBalance
-//        }
-//        
-//        print("Recalculated balance: \(calculatedBalance) (was: \(bankAccount.balance))")
-//        
-//        // Обновляем баланс только если он изменился
-//        if calculatedBalance != bankAccount.balance {
-//            try await updateBankAccount(
-//                name: bankAccount.name,
-//                balance: calculatedBalance,
-//                currency: bankAccount.currency
-//            )
-//        }
-//    }
     func updateBalanceForTransaction(_ transaction: Transaction, category: Category, isAdding: Bool) async throws {
         guard var bankAccount = self.bankAccount else { return }
         
@@ -184,6 +148,28 @@ final class BankAccountsService: BankAccountsServiceProtocol {
             currency: bankAccount.currency
         )
     }
+    
+    
+    func fetchBankAccountHistory(id: Int) async throws -> BankAccountHistory? {
+        do {
+            let bankAccountHistory: BankAccountHistory = try await client.request(endpoint: "api/v1/accounts/\(id)/history", method: "GET")
+            
+//            try storage.save(bankAccount: selectedAccount)
+//            self.bankAccount = selectedAccount
+//            print("FETCHED BANK ACCOUNT from network: \(selectedAccount)")
+            print(bankAccountHistory)
+            return bankAccountHistory
+        } catch {
+//            if let local = try? storage.fetchBankAccount() {
+//                self.bankAccount = local
+//                return local
+//            } else {
+            print(error)
+                throw error
+//            }
+        }
+    }
+    
+    
 }
-
 

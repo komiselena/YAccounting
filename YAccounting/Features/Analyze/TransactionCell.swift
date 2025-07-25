@@ -117,20 +117,25 @@ class TransactionCell: UITableViewCell {
 
         subtitleLabel.text = transaction.comment ?? "Без описания"
 
-        let percent: Double
+        let transactionAmount = Decimal(string: transaction.amount) ?? 0
+        let percent: Decimal
         if totalAmount != 0 {
-            let ratio = (Decimal(string: transaction.amount) ?? 0 / totalAmount) as NSDecimalNumber
-            percent = ratio.doubleValue * 100
+            percent = (transactionAmount / totalAmount) * 100
         } else {
             percent = 0
         }
-        percentLabel.text = String(format: "%.0f%%", percent)
+        
+        let percentFormatter = NumberFormatter()
+        percentFormatter.numberStyle = .decimal
+        percentFormatter.maximumFractionDigits = 1
+        percentFormatter.minimumFractionDigits = 1
+        let percentString = percentFormatter.string(from: percent as NSNumber) ?? "0.0"
+        percentLabel.text = "\(percentString)%"
 
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.groupingSeparator = " "
-        formatter.maximumFractionDigits = 2
-        let amountString = "\(transaction.amount)"
+        let amountFormatter = NumberFormatter()
+        amountFormatter.numberStyle = .decimal
+        amountFormatter.groupingSeparator = " "
+        amountFormatter.maximumFractionDigits = 2
+        let amountString = amountFormatter.string(from: transactionAmount as NSNumber) ?? "0"
         amountLabel.text = "\(amountString) ₽"
-    }
-}
+    }}

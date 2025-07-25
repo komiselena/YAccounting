@@ -35,7 +35,7 @@ final class TransactionViewModel: ObservableObject {
 
     @Published var isProcessingOperation: Bool = false
 
-    private var dateRange: ClosedRange<Date> {
+    var dateRange: ClosedRange<Date> {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: startDate)
         let end = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: endDate)!

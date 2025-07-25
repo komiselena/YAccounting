@@ -146,9 +146,9 @@ struct MyHistoryView: View {
     }
     
 }
-//
-//#Preview {
-//    MyHistoryView(direction: .outcome, viewModel: TransactionViewModel(direction: .outcome))
-//}
+
+#Preview {
+    MyHistoryView(direction: .outcome)
+}
 
 
