@@ -61,7 +61,7 @@ struct BalanceHistoryChart: View {
                                 x: .value("Дата", entry.date, unit: selectedTimeRange == .days30 ? .day : .month),
                                 yStart: .value("Начало", 0),
                                 yEnd: .value("Конец", abs(entry.balance) > 0 ? abs(entry.balance) : (selectedTimeRange == .days30 ? 100000 : 3000)),
-                                width: .fixed(selectedTimeRange == .days30 ? 8 : 16)
+                                width: .fixed(selectedTimeRange == .days30 ? 8 : 8)
                             )
                             .foregroundStyle(
                                 entry.balance == 0 ? Color.gray.opacity(0.2) : (entry.balance > 0 ? Color.green : Color.red)

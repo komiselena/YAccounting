@@ -430,18 +430,24 @@ class AnalysisViewController: UIViewController {
     }
     
     private func animatePieChartUpdate(with newData: [PieChartEntity]) {
-        UIView.animate(withDuration: 0.2, animations: {
+        let oldTransform = pieChartView.transform
+        let oldAlpha = pieChartView.alpha
+        
+        UIView.animate(withDuration: 0.5, delay: 0, options: [.curveEaseIn], animations: {
+            self.pieChartView.transform = oldTransform.rotated(by: .pi)
             self.pieChartView.alpha = 0
-            self.pieChartView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
         }, completion: { _ in
             self.pieChartView.entities = newData
-            UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0, options: [], animations: {
+            self.pieChartView.transform = oldTransform.rotated(by: .pi)
+            
+            UIView.animate(withDuration: 0.5, delay: 0, options: [.curveEaseOut], animations: {
+                self.pieChartView.transform = oldTransform.rotated(by: 2 * .pi)
                 self.pieChartView.alpha = 1
-                self.pieChartView.transform = .identity
+            }, completion: { _ in
+                self.pieChartView.transform = oldTransform
             })
         })
     }
-    
     private func updateTotalAmount() {
         var totalAmount: Decimal {
             transactions.reduce(Decimal.zero) { result, transaction in
