@@ -47,5 +47,44 @@ extension AnalysisViewController {
 
         return stack
     }
+    
+//    func makeRow(titleLabel: UILabel, valueView: UIView, isLast: Bool) -> UIView {
+//        let container = UIView()
+//        container.translatesAutoresizingMaskIntoConstraints = false
+//        
+//        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+//        valueView.translatesAutoresizingMaskIntoConstraints = false
+//        
+//        container.addSubview(titleLabel)
+//        container.addSubview(valueView)
+//        
+//        NSLayoutConstraint.activate([
+//            titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+//            titleLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+//            
+//            valueView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+//            valueView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+//            
+//            container.heightAnchor.constraint(equalToConstant: 44)
+//        ])
+//        
+//        if !isLast {
+//            let separator = UIView()
+//            separator.backgroundColor = .separator
+//            separator.translatesAutoresizingMaskIntoConstraints = false
+//            container.addSubview(separator)
+//            
+//            NSLayoutConstraint.activate([
+//                separator.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+//                separator.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+//                separator.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+//                separator.heightAnchor.constraint(equalToConstant: 0.5)
+//            ])
+//        }
+//        
+//        return container
+//    }
+
+    
 }
 
